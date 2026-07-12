@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baskhedi Social Map Digitizer</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <!-- Leaflet Geoman CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css" />
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="./digitizer.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-container">
+          <div class="logo-glow"></div>
+          <i data-lucide="map" class="logo-icon"></i>
+          <h1>Baskhedi</h1>
+        </div>
+        <p class="subtitle">Social Map Digitizer</p>
+      </div>
+
+      <!-- Progress Stats -->
+      <div class="stats-card">
+        <h3>Digitization Progress</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-value" id="stat-roads">0</span>
+            <span class="stat-label">Roads (Lines)</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="stat-pois">0</span>
+            <span class="stat-label">POIs (Points)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Panel -->
+      <div class="section-title">
+        <i data-lucide="pen-tool"></i>
+        <span>Drawing Toolbox</span>
+      </div>
+      
+      <div class="tools-grid">
+        <button id="tool-road" class="btn btn-secondary" title="Draw a road line">
+          <i data-lucide="git-commit"></i> Road Line
+        </button>
+        <button id="tool-poi" class="btn btn-secondary" title="Draw a POI (school, temple, shop, etc)">
+          <i data-lucide="map-pin"></i> POI Marker
+        </button>
+      </div>
+
+      <div class="template-panel">
+        <div class="form-group-row">
+          <div class="form-group">
+            <label for="active-road-type">Default Road</label>
+            <select id="active-road-type" class="form-control">
+              <option value="pakka">Pakka Road</option>
+              <option value="kaccha">Kaccha Road</option>
+              <option value="road">Other Road</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="active-poi-type">Default POI</label>
+            <select id="active-poi-type" class="form-control">
+              <option value="house">House</option>
+              <option value="landmark">Landmark</option>
+              <option value="school">School</option>
+              <option value="temple">Temple</option>
+              <option value="church">Church</option>
+              <option value="shop">Shop</option>
+              <option value="poi">Other POI</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 10px;">
+          <label for="active-feature-name">Default Name</label>
+          <input type="text" id="active-feature-name" class="form-control" placeholder="e.g. Worker Quarter (Optional)">
+        </div>
+      </div>
+
+      <div class="tools-grid" style="margin-top: 10px;">
+        <button id="tool-edit" class="btn btn-secondary" title="Toggle edit mode">
+          <i data-lucide="edit-3"></i> Edit Mode
+        </button>
+        <button id="tool-delete" class="btn btn-secondary" title="Toggle delete mode">
+          <i data-lucide="trash-2"></i> Delete Mode
+        </button>
+      </div>
+
+      <!-- Feature Editor (contextual) -->
+      <div id="feature-editor" class="editor-card hidden">
+        <div class="card-header">
+          <h3><i data-lucide="edit-2"></i> Properties Editor</h3>
+          <button id="editor-close" class="btn-close"><i data-lucide="x"></i></button>
+        </div>
+        <div class="editor-body">
+          <div class="form-group">
+            <label for="feat-type">Feature Type</label>
+            <select id="feat-type" class="form-control">
+              <!-- Dynamic options depending on geometry -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="feat-name">Feature Name</label>
+            <input type="text" id="feat-name" class="form-control" placeholder="e.g., Primary School">
+          </div>
+          <div class="form-group">
+            <label for="feat-description">Description / Notes</label>
+            <textarea id="feat-description" class="form-control" rows="2" placeholder="e.g., Near main street entrance..."></textarea>
+          </div>
+          <div class="editor-actions">
+            <button id="editor-save" class="btn btn-primary btn-block">
+              <i data-lucide="save"></i> Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features Registry -->
+      <div class="registry-section">
+        <div class="section-title">
+          <i data-lucide="list"></i>
+          <span>Digitized Elements</span>
+        </div>
+        <div id="features-list" class="features-list">
+          <div class="empty-state">
+            <i data-lucide="info" class="info-icon"></i>
+            <p>No features drawn yet. Draw a Road Line or POI Marker on the map.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="sidebar-footer">
+        <button id="btn-export" class="btn btn-glow btn-block">
+          <i data-lucide="download"></i> Export GeoJSON
+        </button>
+        <div class="footer-subactions">
+          <label for="btn-import" class="btn btn-secondary btn-sm" title="Import existing GeoJSON file">
+            <i data-lucide="upload"></i> Import GeoJSON
+            <input type="file" id="btn-import" accept=".geojson,application/json" style="display: none;">
+          </label>
+          <button id="btn-clear" class="btn btn-danger btn-sm" title="Clear all drawn features">
+            <i data-lucide="refresh-cw"></i> Clear All
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map Area -->
+    <main class="map-wrapper">
+      <div id="map"></div>
+      <div class="coordinate-panel">
+        <span class="coord-label">X (px):</span> <span id="coord-x" class="coord-val">0</span>
+        <span class="coord-divider">|</span>
+        <span class="coord-label">Y (px):</span> <span id="coord-y" class="coord-val">0</span>
+      </div>
+    </main>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Leaflet Geoman JS -->
+  <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- App JS -->
+  <script type="module" src="./digitizer.js"></script>
+</body>
+</html>

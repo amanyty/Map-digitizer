@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baskhedi Georeferenced Routing Dashboard</title>
+  
+  <!-- Mapbox GL JS CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    
+    <!-- Sidebar Control Panel -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-container">
+          <div class="logo-glow"></div>
+          <i data-lucide="navigation-2" class="logo-icon"></i>
+          <h1>Baskhedi</h1>
+        </div>
+        <p class="subtitle">Georeferenced Route Dashboard</p>
+      </div>
+
+      <!-- Mapbox Token Configuration (Hidden once saved, expandable) -->
+      <details class="config-panel" id="token-config-details" open>
+        <summary class="config-summary">
+          <div class="summary-title">
+            <i data-lucide="key" class="icon-small"></i>
+            <span>Mapbox Access Token</span>
+          </div>
+          <i data-lucide="chevron-down" class="chevron-icon"></i>
+        </summary>
+        <div class="config-content">
+          <p class="config-help">Mapbox GL JS requires an access token to render map tiles. Enter your token below:</p>
+          <div class="token-input-group">
+            <input type="text" id="mapbox-token-input" class="form-control" placeholder="pk.eyJ1Ijoi...">
+            <button id="btn-save-token" class="btn btn-primary btn-icon-only" title="Save Token">
+              <i data-lucide="save"></i>
+            </button>
+          </div>
+          <p class="config-hint">Don't have one? Get a free token at <a href="https://mapbox.com" target="_blank" rel="noopener">mapbox.com</a></p>
+        </div>
+      </details>
+
+      <!-- Routing Control Card -->
+      <div class="control-card">
+        <h3 class="card-title">
+          <i data-lucide="map-pin"></i>
+          <span>Click-to-Route Navigator</span>
+        </h3>
+        <p class="card-help">Click anywhere on the road network to place your <strong>Start</strong> point, then click a second time to set your <strong>Destination</strong>.</p>
+        
+        <div class="route-nodes-display">
+          <div class="node-step" id="step-start">
+            <div class="step-indicator start">A</div>
+            <div class="step-details">
+              <span class="step-label">Start Point</span>
+              <span class="step-coords" id="coords-start">Not selected</span>
+            </div>
+          </div>
+          <div class="step-line"></div>
+          <div class="node-step" id="step-end">
+            <div class="step-indicator end">B</div>
+            <div class="step-details">
+              <span class="step-label">Destination</span>
+              <span class="step-coords" id="coords-end">Not selected</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="route-stats-container hidden" id="route-stats">
+          <div class="stat-divider"></div>
+          <div class="stat-row">
+            <span class="stat-lbl">Route Distance:</span>
+            <span class="stat-val" id="route-distance">0.00 meters</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-lbl">Start Snap Dist:</span>
+            <span class="stat-val" id="snap-start-distance">0.0m</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-lbl">End Snap Dist:</span>
+            <span class="stat-val" id="snap-end-distance">0.0m</span>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button id="btn-clear-route" class="btn btn-secondary disabled" disabled>
+            <i data-lucide="x-circle"></i> Clear Route
+          </button>
+        </div>
+      </div>
+
+      <!-- Network and POI Legend -->
+      <div class="control-card">
+        <h3 class="card-title">
+          <i data-lucide="layers"></i>
+          <span>Map Legend</span>
+        </h3>
+        <div class="legend-list">
+          <div class="legend-item">
+            <span class="legend-line road"></span>
+            <span class="legend-text">Road Network</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon-badge school"><i data-lucide="graduation-cap"></i></span>
+            <span class="legend-text">School / Anganwadi</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon-badge temple"><i data-lucide="shrub"></i></span>
+            <span class="legend-text">Temple / Landmark</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon-badge church"><i data-lucide="church"></i></span>
+            <span class="legend-text">Church</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon-badge shop"><i data-lucide="shopping-bag"></i></span>
+            <span class="legend-text">Shop / Tailor / Clothing</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon-badge house"><i data-lucide="home"></i></span>
+            <span class="legend-text">Residential House</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon-badge landmark"><i data-lucide="flag"></i></span>
+            <span class="legend-text">Landmark</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation/Quick Links -->
+      <div class="sidebar-footer">
+        <a href="./digitizer.html" class="btn btn-secondary btn-full">
+          <i data-lucide="edit-3"></i> Open Leaflet Digitizer
+        </a>
+        <div class="copyright">Baskhedi GIS Platform &copy; 2026</div>
+      </div>
+    </aside>
+
+    <!-- Main Map Container -->
+    <main class="map-view">
+      <div id="map"></div>
+      
+      <!-- Token Alert Overlay (Shows if map fails to load due to missing token) -->
+      <div class="overlay-modal" id="token-required-overlay">
+        <div class="modal-card">
+          <i data-lucide="map" class="modal-icon text-indigo"></i>
+          <h2>Mapbox Access Token Required</h2>
+          <p>This georeferenced route dashboard uses Mapbox GL JS. Please enter a valid Mapbox Access Token to load the map and roads.</p>
+          <div class="form-group" style="width: 100%; margin-top: 8px;">
+            <input type="text" id="mapbox-token-input-modal" class="form-control" placeholder="Paste pk.eyJ1... here" style="text-align: center;">
+          </div>
+          <div class="modal-buttons" style="width: 100%;">
+            <button id="btn-save-token-modal" class="btn btn-primary" style="width: 100%;">Save and Load Map</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Mapbox GL JS -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+  <!-- App JS -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
