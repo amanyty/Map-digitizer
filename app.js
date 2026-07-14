@@ -114,7 +114,7 @@ function enableEditMode() {
   if (!draw) {
     draw = new MapboxDraw({
       displayControlsDefault: false,
-      controls: { trash: true }
+      controls: {}
     });
   }
   map.addControl(draw);

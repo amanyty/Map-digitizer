@@ -768,3 +768,93 @@ details[open] .chevron-icon {
 .poi-popup .mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
   border-left-color: #111827 !important;
 }
+
+/* Edit Toolbar */
+.edit-toolbar {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: var(--bg-sidebar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.edit-toolbar-header {
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+.edit-toolbar-header i {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.edit-toolbar-tools {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 250px;
+}
+
+.btn-tool {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-tool:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-2px);
+}
+.btn-tool.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.btn-tool.danger.active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.btn-tool i {
+  width: 18px;
+  height: 18px;
+}
+
+.tool-divider {
+  width: 1px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.edit-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.hidden {
+  display: none !important;
+}
