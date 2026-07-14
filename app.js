@@ -24,7 +24,63 @@ if (window.lucide) {
 // Global Application State
 let map = null;
 let mapboxToken = localStorage.getItem('mapbox_access_token') || '';
-const baskhediCenter = [75.2644, 24.2589];
+
+// --- VILLAGE CONFIGURATION ---
+const villageConfig = {
+  baskhedi: {
+    name: "Baskhedi",
+    center: [75.2644, 24.2589],
+    imageOverlayUrl: "/baskhedi_stylized_map.png",
+    imageCoordinates: [
+      [75.2595, 24.2634], // top-left
+      [75.2693, 24.2634], // top-right
+      [75.2693, 24.2544], // bottom-right
+      [75.2595, 24.2544]  // bottom-left
+    ],
+    firestoreCollection: "features"
+  },
+  village2: {
+    name: "Village 2",
+    center: [75.2644, 24.2589], // Placeholder
+    imageOverlayUrl: "",
+    imageCoordinates: [
+      [75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]
+    ],
+    firestoreCollection: "features_village2"
+  },
+  village3: {
+    name: "Village 3",
+    center: [75.2644, 24.2589], // Placeholder
+    imageOverlayUrl: "",
+    imageCoordinates: [
+      [75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]
+    ],
+    firestoreCollection: "features_village3"
+  }
+};
+
+let currentVillageId = localStorage.getItem('current_village_id') || 'baskhedi';
+
+// Update title on load
+const villageTitle = document.getElementById('village-title');
+if (villageTitle && villageConfig[currentVillageId]) {
+  villageTitle.innerText = villageConfig[currentVillageId].name;
+}
+
+// Listen to village select dropdown
+const villageSelect = document.getElementById('village-select');
+if (villageSelect) {
+  villageSelect.value = currentVillageId;
+  villageSelect.addEventListener('change', (e) => {
+    currentVillageId = e.target.value;
+    localStorage.setItem('current_village_id', currentVillageId);
+    if (map) {
+        window.location.reload(); 
+    }
+  });
+}
+
+
 
 let currentGeoJSON = { type: 'FeatureCollection', features: [] };
 let draw = null;
@@ -60,6 +116,7 @@ const snapEndDisplay = document.getElementById('snap-end-distance');
 const clearRouteBtn = document.getElementById('btn-clear-route');
 
 const btnToggleEdit = document.getElementById('btn-toggle-edit');
+const btnPrintMap = document.getElementById('btn-print-map');
 const authModal = document.getElementById('auth-modal');
 const authEmail = document.getElementById('auth-email');
 const authPassword = document.getElementById('auth-password');
@@ -124,6 +181,18 @@ function enableEditMode() {
   map.on('draw.update', syncDrawToFirestore);
   map.on('draw.delete', deleteFromFirestore);
   
+  map.on('draw.selectionchange', async (e) => {
+    if (isEditMode && activeEditTool === 'delete') {
+      if (e.features && e.features.length > 0) {
+        const feature = e.features[0];
+        if (feature.id) {
+          await deleteDoc(doc(db, 'features', feature.id));
+          draw.delete(feature.id);
+        }
+      }
+    }
+  });
+  
   // Make all HTML markers draggable
   for (const id in markers) {
     markers[id].marker.setDraggable(true);
@@ -140,6 +209,7 @@ function disableEditMode() {
     map.off('draw.create', syncDrawToFirestore);
     map.off('draw.update', syncDrawToFirestore);
     map.off('draw.delete', deleteFromFirestore);
+    map.off('draw.selectionchange');
   }
   
   // Make all HTML markers non-draggable
@@ -162,7 +232,7 @@ toolBtns.forEach(btn => {
     btn.classList.add('active');
     activeEditTool = btn.dataset.type;
     
-    if (activeEditTool === 'road') {
+    if (['road', 'curved_road', 'canal'].includes(activeEditTool)) {
       editStatusText.innerText = "Click to draw road. Double-click to finish.";
       if (draw) draw.changeMode('draw_line_string');
       map.getCanvas().style.cursor = 'crosshair';
@@ -190,25 +260,25 @@ function resetActiveTool() {
 async function syncDrawToFirestore(e) {
   const features = e.features;
   for (const f of features) {
-     const docId = f.id || doc(collection(db, 'features')).id;
+     const docId = f.id || doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
      f.id = docId;
      
      // Force 'road' type if it was drawn with the line string tool
      if (!f.properties.type && f.geometry.type === 'LineString') {
-       f.properties.type = 'road';
+       f.properties.type = activeEditTool && ['road', 'curved_road', 'canal'].includes(activeEditTool) ? activeEditTool : 'road';
      }
      
      const data = JSON.parse(JSON.stringify(f));
      data.geometry.coordinates = JSON.stringify(data.geometry.coordinates);
-     await setDoc(doc(db, 'features', docId), data);
+     await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), data);
   }
-  if (activeEditTool === 'road') resetActiveTool();
+  if (['road', 'curved_road', 'canal'].includes(activeEditTool)) resetActiveTool();
 }
 
 async function deleteFromFirestore(e) {
   const features = e.features;
   for (const f of features) {
-     if (f.id) await deleteDoc(doc(db, 'features', f.id));
+     if (f.id) await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, f.id));
   }
 }
 
@@ -239,10 +309,11 @@ function saveToken(token) {
   }
 }
 
-saveTokenBtn.addEventListener('click', () => saveToken(tokenInput.value.trim()));
-if (saveTokenBtnModal) {
-  saveTokenBtnModal.addEventListener('click', () => saveToken(tokenInputModal.value.trim()));
-}
+  saveTokenBtn.addEventListener('click', () => saveToken(tokenInput.value.trim()));
+  if (saveTokenBtnModal) {
+    saveTokenBtnModal.addEventListener('click', () => saveToken(tokenInputModal.value.trim()));
+  }
+
 
 function initializeMap() {
   if (map) return;
@@ -251,18 +322,94 @@ function initializeMap() {
   try {
     map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: baskhediCenter,
+      style: 'mapbox://styles/mapbox/satellite-v9',
+      center: villageConfig[currentVillageId].center,
       zoom: 15.5,
+      preserveDrawingBuffer: true,
       pitch: 30,
       bearing: 0
     });
     
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-    
-    map.on('load', onMapLoad);
-    map.on('click', onMapClick);
+    map.on('load', () => {
+      // AI Generated stylized map overlay
+      const vConfig = villageConfig[currentVillageId];
+      if (vConfig.imageOverlayUrl) {
+          map.addSource('baskhedi-image', {
+            type: 'image',
+            url: vConfig.imageOverlayUrl,
+            coordinates: vConfig.imageCoordinates
+          });
+          map.addLayer({
+            id: 'baskhedi-overlay',
+            type: 'raster',
+            source: 'baskhedi-image',
+            paint: { 'raster-opacity': 1.0 }
+          });
+      }
+
+
+
+      map.addSource('baskhedi-features', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      
+
+      map.addLayer({
+        id: 'roads-line',
+        type: 'line',
+        source: 'baskhedi-features',
+        filter: ['==', '$type', 'LineString'],
+        paint: { 
+            'line-color': [
+                'match',
+                ['get', 'type'],
+                'canal', '#0ea5e9',
+                /* default for road / curved_road */ '#000000'
+            ],
+            'line-width': 3.5, 
+            'line-opacity': 1.0 
+        },
+        layout: { 'line-join': 'round', 'line-cap': 'round' }
+      });
+
+      map.addLayer({
+        id: 'roads-line-hover',
+        type: 'line',
+        source: 'baskhedi-features',
+        filter: ['==', '$type', 'LineString'],
+        paint: { 
+            'line-color': [
+                'match',
+                ['get', 'type'],
+                'canal', '#0284c7',
+                '#333333'
+            ], 
+            'line-width': 7, 
+            'line-opacity': 0.0 
+        },
+        layout: { 'line-join': 'round', 'line-cap': 'round' }
+      });
+map.addSource('route', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      
+      map.addLayer({
+        id: 'route-line',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#06b6d4', 'line-width': 7, 'line-opacity': 0.95 }
+      });
+
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+      
+      map.on('click', onMapClick);
+      if (isEditMode) enableEditMode();
+      loadFirestoreData();
+    });
     
   } catch (error) {
     console.error("Mapbox initialization error:", error);
@@ -270,62 +417,8 @@ function initializeMap() {
   }
 }
 
-function onMapLoad() {
-  map.addSource('baskhedi-image', {
-    type: 'image',
-    url: './google_maps_baskhedi.png',
-    coordinates: [[75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]]
-  });
-
-  map.addLayer({
-    id: 'baskhedi-raster',
-    type: 'raster',
-    source: 'baskhedi-image',
-    paint: { 'raster-opacity': 1.0, 'raster-fade-duration': 0 }
-  });
-
-  map.addSource('baskhedi-features', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: [] }
-  });
-  
-  map.addLayer({
-    id: 'roads-line',
-    type: 'line',
-    source: 'baskhedi-features',
-    filter: ['==', '$type', 'LineString'],
-    paint: { 'line-color': '#F2C84B', 'line-width': 4.5, 'line-opacity': 0.85 },
-    layout: { 'line-join': 'round', 'line-cap': 'round' }
-  });
-
-  map.addLayer({
-    id: 'roads-line-hover',
-    type: 'line',
-    source: 'baskhedi-features',
-    filter: ['==', '$type', 'LineString'],
-    paint: { 'line-color': '#E5B82B', 'line-width': 8, 'line-opacity': 0.0 },
-    layout: { 'line-join': 'round', 'line-cap': 'round' }
-  });
-
-  map.addSource('route', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: [] }
-  });
-  
-  map.addLayer({
-    id: 'route-line',
-    type: 'line',
-    source: 'route',
-    layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': '#06b6d4', 'line-width': 7, 'line-opacity': 0.95 }
-  });
-
-  if (isEditMode) enableEditMode();
-  loadFirestoreData();
-}
-
 function loadFirestoreData() {
-  onSnapshot(collection(db, 'features'), (snapshot) => {
+  onSnapshot(collection(db, villageConfig[currentVillageId].firestoreCollection), (snapshot) => {
     const features = [];
     snapshot.forEach(docSnap => {
        let data = docSnap.data();
@@ -365,17 +458,60 @@ function renderMarkers(features) {
         const el = document.createElement('div');
         el.className = `map-poi-marker ${props.type || 'poi'}`;
         
-        let iconName = 'map-pin';
-        if (props.type === 'school') iconName = 'graduation-cap';
-        else if (props.type === 'temple') iconName = 'shrub';
-        else if (props.type === 'church') iconName = 'church';
-        else if (props.type === 'shop') iconName = 'shopping-bag';
-        else if (props.type === 'house') iconName = 'home';
-        else if (props.type === 'landmark') iconName = 'flag';
-        
-        el.innerHTML = `
-          <div class="poi-icon-wrapper" title="${props.name || props.type || 'POI'}">
-            <i data-lucide="${iconName}"></i>
+                const typeMap = {
+          house: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="none" stroke="#ef4444" stroke-width="2"/></svg>',
+          empty_house: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="none" stroke="#ef4444" stroke-width="2"/></svg>',
+          house_solid: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="#ef4444"/></svg>',
+          empty_house_solid: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="#ef4444"/></svg>',
+          service_provider: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="#eab308"/></svg>',
+          temple_mosque: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="white" stroke="black" stroke-width="2"/></svg>',
+          school: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#8B4513"/></svg>',
+          govt_building: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#d946ef"/></svg>',
+          health_center: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="4" width="20" height="16" fill="white" stroke="black" stroke-width="1"/><path d="M12 7v10M7 12h10" stroke="#22c55e" stroke-width="4"/></svg>',
+          tree: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="9" r="7" fill="#22c55e"/><path d="M12 16v6" stroke="#8B4513" stroke-width="3"/></svg>',
+          pond: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#3b82f6" stroke-width="2"/><line x1="5" y1="8" x2="19" y2="8" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="3" y1="12" x2="21" y2="12" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="5" y1="16" x2="19" y2="16" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/></svg>',
+          handpump_working: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M6 14h2v6H6z" fill="#3b82f6"/></svg>',
+          handpump_broken: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M4 14l6 6M10 14l-6 6" stroke="#ef4444" stroke-width="2"/></svg>',
+          tap_working: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><circle cx="12" cy="18" r="3" fill="#3b82f6"/></svg>',
+          tap_broken: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><path d="M9 16l6 6M15 16l-6 6" stroke="#ef4444" stroke-width="2"/></svg>',
+          open_defecation: '<svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12 2 22 7 22 17 12 22 2 17 2 7" fill="none" stroke="black" stroke-width="2"/></svg>',
+          road: '<svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="black" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="black" stroke-width="2"/></svg>',
+          curved_road: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M2 10 Q12 0 22 10" fill="none" stroke="black" stroke-width="2"/><path d="M2 14 Q12 4 22 14" fill="none" stroke="black" stroke-width="2"/></svg>',
+          canal: '<svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="#0ea5e9" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="#0ea5e9" stroke-width="2"/></svg>',
+          water_tank: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6 Q12 2 18 6 v12 Q12 22 6 18 Z" fill="#3b82f6"/></svg>',
+          underground_tank: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="18" x2="21" y2="6" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="12" y2="6" stroke="black" stroke-width="2"/><line x1="12" y1="18" x2="21" y2="12" stroke="black" stroke-width="2"/></svg>',
+          transformer: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="black" stroke-width="2"/><line x1="4" y1="4" x2="20" y2="20" stroke="black" stroke-width="2"/><line x1="20" y1="4" x2="4" y2="20" stroke="black" stroke-width="2"/></svg>',
+          solar_panel: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="21" y2="12" stroke="black" stroke-width="1"/><line x1="9" y1="6" x2="9" y2="18" stroke="black" stroke-width="1"/><line x1="15" y1="6" x2="15" y2="18" stroke="black" stroke-width="1"/></svg>',
+          power_center: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="black" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="black" stroke-width="1"/><line x1="10" y1="6" x2="10" y2="18" stroke="black" stroke-width="1"/><line x1="14" y1="6" x2="14" y2="18" stroke="black" stroke-width="1"/><line x1="18" y1="6" x2="18" y2="18" stroke="black" stroke-width="1"/></svg>',
+          playground: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#22c55e" stroke-width="2"/></svg>',
+          well: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><circle cx="12" cy="12" r="8" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2 2"/></svg>',
+        };
+          let typeToUse = props.type || 'poi';
+          // Legacy mappings for existing GeoJSON data
+          if (typeToUse === 'shop') typeToUse = 'service_provider';
+          if (typeToUse === 'temple' || typeToUse === 'church') typeToUse = 'temple_mosque';
+          if (typeToUse === 'landmark') typeToUse = 'govt_building';
+          if (typeToUse === 'poi') typeToUse = 'house_solid';
+
+          let iconHtml = typeMap[typeToUse] || '<i data-lucide="map-pin" style="color: #f43f5e"></i>';
+          
+          let extractColor = '#f43f5e';
+          let strokeMatch = iconHtml.match(/stroke="([^"]+)"/);
+          let fillMatch = iconHtml.match(/fill="([^"]+)"/);
+          
+          if (strokeMatch && strokeMatch[1] !== 'none' && strokeMatch[1] !== 'white' && strokeMatch[1] !== 'black') {
+              extractColor = strokeMatch[1];
+          } else if (fillMatch && fillMatch[1] !== 'none' && fillMatch[1] !== 'white' && fillMatch[1] !== 'black') {
+              extractColor = fillMatch[1];
+          } else if (strokeMatch && strokeMatch[1] === 'black') {
+              extractColor = '#000';
+          } else if (fillMatch && fillMatch[1] === 'black') {
+              extractColor = '#000';
+          }
+          
+          el.innerHTML = `
+          <div class="poi-icon-wrapper" style="background: rgba(255, 255, 255, 0.7); border: 2px solid ${extractColor}; border-radius: 50%; padding: 4px; box-shadow: 2px 2px 0px rgba(0,0,0,0.1); color: ${extractColor};" title="${props.name || props.type || 'POI'}">
+            ${iconHtml}
           </div>
           ${props.name ? `
             <div class="poi-label-container">
@@ -394,7 +530,7 @@ function renderMarkers(features) {
           const docId = feature.id;
           const data = JSON.parse(JSON.stringify(feature));
           data.geometry.coordinates = JSON.stringify([lngLat.lng, lngLat.lat]);
-          await setDoc(doc(db, 'features', docId), data);
+          await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), data);
         });
 
         const popup = new mapboxgl.Popup({ offset: [0, -27], closeButton: true, className: 'poi-popup' });
@@ -456,7 +592,7 @@ async function onMapClick(e) {
   
   if (isEditMode) {
     if (['house', 'school', 'shop', 'temple', 'church', 'landmark'].includes(activeEditTool)) {
-      const docId = doc(collection(db, 'features')).id;
+      const docId = doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
       const newFeature = {
         type: "Feature",
         id: docId,
@@ -466,7 +602,7 @@ async function onMapClick(e) {
           coordinates: JSON.stringify([e.lngLat.lng, e.lngLat.lat])
         }
       };
-      await setDoc(doc(db, 'features', docId), newFeature);
+      await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), newFeature);
       resetActiveTool();
     }
     return;
@@ -482,20 +618,20 @@ async function onMapClick(e) {
 function setStartEndpoint(lng, lat) {
   if (startCoords && endCoords) clearRoute();
   startCoords = { lng, lat };
-  coordsStartDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
+  if (coordsStartDisplay) coordsStartDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
   if (startMarker) startMarker.remove();
   const el = document.createElement('div');
   el.className = 'custom-marker start';
   startMarker = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
-  clearRouteBtn.classList.remove('disabled');
-  clearRouteBtn.removeAttribute('disabled');
+  if (clearRouteBtn) clearRouteBtn.classList.remove('disabled');
+  if (clearRouteBtn) clearRouteBtn.removeAttribute('disabled');
   if (endCoords) fetchShortestRoute();
 }
 
 function setEndEndpoint(lng, lat) {
   if (!startCoords) { alert("Please select a starting point first."); return; }
   endCoords = { lng, lat };
-  coordsEndDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
+  if (coordsEndDisplay) coordsEndDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
   if (endMarker) endMarker.remove();
   const el = document.createElement('div');
   el.className = 'custom-marker end';
@@ -517,17 +653,17 @@ function fetchShortestRoute() {
       properties: { distance_meters: result.distance, snapped_start: { distance_meters: startSnap.distance }, snapped_end: { distance_meters: endSnap.distance } }
     };
     map.getSource('route').setData(routeGeoJSON);
-    routeDistanceDisplay.innerText = `${result.distance.toLocaleString()}m`;
-    snapStartDisplay.innerText = `${startSnap.distance.toFixed(1)}m`;
-    snapEndDisplay.innerText = `${endSnap.distance.toFixed(1)}m`;
-    routeStatsContainer.classList.remove('hidden');
+    if (routeDistanceDisplay) routeDistanceDisplay.innerText = `${result.distance.toLocaleString()}m`;
+    if (snapStartDisplay) snapStartDisplay.innerText = `${startSnap.distance.toFixed(1)}m`;
+    if (snapEndDisplay) snapEndDisplay.innerText = `${endSnap.distance.toFixed(1)}m`;
+    if (routeStatsContainer) routeStatsContainer.classList.remove('hidden');
     
     const bounds = new mapboxgl.LngLatBounds();
     result.path.forEach(c => bounds.extend(c));
     map.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 1000 });
   } else {
     alert("No route exists.");
-    if (endMarker) { endMarker.remove(); endMarker = null; endCoords = null; coordsEndDisplay.innerText = "Not selected"; }
+    if (endMarker) { endMarker.remove(); endMarker = null; endCoords = null; if (coordsEndDisplay) coordsEndDisplay.innerText = "Not selected"; }
   }
 }
 
@@ -536,11 +672,11 @@ function clearRoute() {
   if (startMarker) { startMarker.remove(); startMarker = null; }
   if (endMarker) { endMarker.remove(); endMarker = null; }
   if (map && map.getSource('route')) map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
-  coordsStartDisplay.innerText = "Not selected"; coordsEndDisplay.innerText = "Not selected";
-  routeStatsContainer.classList.add('hidden');
-  clearRouteBtn.classList.add('disabled'); clearRouteBtn.setAttribute('disabled', '');
+  if (coordsStartDisplay) coordsStartDisplay.innerText = "Not selected"; if (coordsEndDisplay) coordsEndDisplay.innerText = "Not selected";
+  if (routeStatsContainer) routeStatsContainer.classList.add('hidden');
+  if (clearRouteBtn) clearRouteBtn.classList.add('disabled'); if (clearRouteBtn) clearRouteBtn.setAttribute('disabled', '');
 }
-clearRouteBtn.addEventListener('click', clearRoute);
+if (clearRouteBtn) clearRouteBtn.addEventListener('click', clearRoute);
 
 // --- ROUTING ENGINE ---
 function haversineDistance(c1, c2) {
@@ -605,3 +741,23 @@ function solveDijkstra(startNode, endNode) {
 }
 
 initTokenState();
+
+
+if (btnPrintMap) {
+  btnPrintMap.addEventListener('click', () => {
+    if (map) {
+      document.body.classList.add('is-printing');
+      map.resize();
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+          document.body.classList.remove('is-printing');
+          map.resize();
+        }, 500);
+      }, 1000);
+    } else {
+      window.print();
+    }
+  });
+}
+
