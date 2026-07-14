@@ -152,6 +152,26 @@
     <main class="map-view">
       <div id="map"></div>
       
+      <!-- Edit Mode Toolbar (Floating) -->
+      <div class="edit-toolbar hidden" id="edit-toolbar">
+        <div class="edit-toolbar-header">
+          <i data-lucide="pen-tool"></i> Map Editor
+        </div>
+        <div class="edit-toolbar-tools">
+          <button class="btn-tool" data-type="house" title="Add House"><i data-lucide="home"></i></button>
+          <button class="btn-tool" data-type="school" title="Add School"><i data-lucide="graduation-cap"></i></button>
+          <button class="btn-tool" data-type="shop" title="Add Shop"><i data-lucide="shopping-bag"></i></button>
+          <button class="btn-tool" data-type="temple" title="Add Temple"><i data-lucide="shrub"></i></button>
+          <button class="btn-tool" data-type="church" title="Add Church"><i data-lucide="church"></i></button>
+          <button class="btn-tool" data-type="landmark" title="Add Landmark"><i data-lucide="flag"></i></button>
+          <div class="tool-divider"></div>
+          <button class="btn-tool" data-type="road" title="Draw Road"><i data-lucide="navigation"></i></button>
+          <div class="tool-divider"></div>
+          <button class="btn-tool danger" data-type="delete" title="Delete Mode"><i data-lucide="trash-2"></i></button>
+        </div>
+        <div class="edit-status" id="edit-status-text">Click a tool or drag icons</div>
+      </div>
+      
       <!-- Token Alert Overlay (Shows if map fails to load due to missing token) -->
       <div class="overlay-modal" id="token-required-overlay">
         <div class="modal-card">

@@ -24,16 +24,17 @@ if (window.lucide) {
 // Global Application State
 let map = null;
 let mapboxToken = localStorage.getItem('mapbox_access_token') || '';
-const baskhediCenter = [75.2644, 24.2589]; // [longitude, latitude] for Mapbox
+const baskhediCenter = [75.2644, 24.2589];
 
 let currentGeoJSON = { type: 'FeatureCollection', features: [] };
 let draw = null;
 let isEditMode = false;
+let activeEditTool = null; // 'house', 'school', 'shop', 'temple', 'church', 'landmark', 'road', 'delete'
 const markers = {}; // HTML markers
 
 // Routing coordinates state
-let startCoords = null; // {lng, lat}
-let endCoords = null;   // {lng, lat}
+let startCoords = null; 
+let endCoords = null;   
 let startMarker = null;
 let endMarker = null;
 
@@ -66,6 +67,10 @@ const btnSubmitAuth = document.getElementById('btn-submit-auth');
 const btnCancelAuth = document.getElementById('btn-cancel-auth');
 const authError = document.getElementById('auth-error');
 
+const editToolbar = document.getElementById('edit-toolbar');
+const editStatusText = document.getElementById('edit-status-text');
+const toolBtns = document.querySelectorAll('.btn-tool');
+
 // --- AUTHENTICATION & EDIT MODE ---
 onAuthStateChanged(auth, user => {
   if (user) {
@@ -87,9 +92,7 @@ btnToggleEdit.addEventListener('click', () => {
   }
 });
 
-btnCancelAuth.addEventListener('click', () => {
-  authModal.classList.add('hidden');
-});
+btnCancelAuth.addEventListener('click', () => authModal.classList.add('hidden'));
 
 btnSubmitAuth.addEventListener('click', async () => {
   try {
@@ -104,12 +107,14 @@ btnSubmitAuth.addEventListener('click', async () => {
 
 function enableEditMode() {
   isEditMode = true;
+  editToolbar.classList.remove('hidden');
+  
   if (!map) return;
   
   if (!draw) {
     draw = new MapboxDraw({
       displayControlsDefault: false,
-      controls: { point: true, line_string: true, polygon: true, trash: true }
+      controls: { trash: true }
     });
   }
   map.addControl(draw);
@@ -118,41 +123,96 @@ function enableEditMode() {
   map.on('draw.create', syncDrawToFirestore);
   map.on('draw.update', syncDrawToFirestore);
   map.on('draw.delete', deleteFromFirestore);
+  
+  // Make all HTML markers draggable
+  for (const id in markers) {
+    markers[id].marker.setDraggable(true);
+  }
 }
 
 function disableEditMode() {
   isEditMode = false;
+  editToolbar.classList.add('hidden');
+  resetActiveTool();
+  
   if (map && draw) {
     map.removeControl(draw);
     map.off('draw.create', syncDrawToFirestore);
     map.off('draw.update', syncDrawToFirestore);
     map.off('draw.delete', deleteFromFirestore);
   }
+  
+  // Make all HTML markers non-draggable
+  for (const id in markers) {
+    markers[id].marker.setDraggable(false);
+  }
 }
 
+// --- CUSTOM EDIT TOOLBAR LOGIC ---
+toolBtns.forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    toolBtns.forEach(b => b.classList.remove('active'));
+    
+    if (activeEditTool === btn.dataset.type) {
+      // Toggle off
+      resetActiveTool();
+      return;
+    }
+    
+    btn.classList.add('active');
+    activeEditTool = btn.dataset.type;
+    
+    if (activeEditTool === 'road') {
+      editStatusText.innerText = "Click to draw road. Double-click to finish.";
+      if (draw) draw.changeMode('draw_line_string');
+      map.getCanvas().style.cursor = 'crosshair';
+    } else if (activeEditTool === 'delete') {
+      editStatusText.innerText = "Click on a POI or road to delete it.";
+      if (draw) draw.changeMode('simple_select');
+      map.getCanvas().style.cursor = 'no-drop';
+    } else {
+      editStatusText.innerText = `Click anywhere to place a ${activeEditTool}.`;
+      if (draw) draw.changeMode('simple_select');
+      map.getCanvas().style.cursor = 'crosshair';
+    }
+  });
+});
+
+function resetActiveTool() {
+  activeEditTool = null;
+  toolBtns.forEach(b => b.classList.remove('active'));
+  editStatusText.innerText = "Click a tool or drag icons";
+  if (map) map.getCanvas().style.cursor = '';
+  if (draw) draw.changeMode('simple_select');
+}
+
+// Mapbox Draw sync
 async function syncDrawToFirestore(e) {
   const features = e.features;
   for (const f of features) {
      const docId = f.id || doc(collection(db, 'features')).id;
      f.id = docId;
      
+     // Force 'road' type if it was drawn with the line string tool
+     if (!f.properties.type && f.geometry.type === 'LineString') {
+       f.properties.type = 'road';
+     }
+     
      const data = JSON.parse(JSON.stringify(f));
      data.geometry.coordinates = JSON.stringify(data.geometry.coordinates);
-     
      await setDoc(doc(db, 'features', docId), data);
   }
+  if (activeEditTool === 'road') resetActiveTool();
 }
 
 async function deleteFromFirestore(e) {
   const features = e.features;
   for (const f of features) {
-     if (f.id) {
-       await deleteDoc(doc(db, 'features', f.id));
-     }
+     if (f.id) await deleteDoc(doc(db, 'features', f.id));
   }
 }
 
-// --- TOKEN MANAGEMENT ---
+// --- MAP INITIALIZATION ---
 function initTokenState() {
   if (mapboxToken) {
     tokenInput.value = mapboxToken;
@@ -172,12 +232,8 @@ function saveToken(token) {
     mapboxToken = token;
     tokenOverlay.classList.add('hidden');
     tokenConfigDetails.removeAttribute('open');
-    
-    if (map) {
-      window.location.reload();
-    } else {
-      initializeMap();
-    }
+    if (map) window.location.reload();
+    else initializeMap();
   } else {
     alert("Please enter a valid Mapbox Access Token.");
   }
@@ -188,7 +244,6 @@ if (saveTokenBtnModal) {
   saveTokenBtnModal.addEventListener('click', () => saveToken(tokenInputModal.value.trim()));
 }
 
-// --- MAP INITIALIZATION ---
 function initializeMap() {
   if (map) return;
   mapboxgl.accessToken = mapboxToken;
@@ -215,19 +270,11 @@ function initializeMap() {
   }
 }
 
-// --- DATA LAYER LOADING (FIRESTORE) ---
 function onMapLoad() {
-  console.log("[Mapbox] Loading Baskhedi georeferenced GeoJSON data...");
-  
   map.addSource('baskhedi-image', {
     type: 'image',
     url: './google_maps_baskhedi.png',
-    coordinates: [
-      [75.2595, 24.2634],
-      [75.2693, 24.2634],
-      [75.2693, 24.2544],
-      [75.2595, 24.2544]
-    ]
+    coordinates: [[75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]]
   });
 
   map.addLayer({
@@ -274,7 +321,6 @@ function onMapLoad() {
   });
 
   if (isEditMode) enableEditMode();
-
   loadFirestoreData();
 }
 
@@ -338,24 +384,40 @@ function renderMarkers(features) {
           ` : ''}
         `;
         
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', draggable: isEditMode })
           .setLngLat(coords)
           .addTo(map);
 
+        // Handle Marker Drag
+        marker.on('dragend', async () => {
+          const lngLat = marker.getLngLat();
+          const docId = feature.id;
+          const data = JSON.parse(JSON.stringify(feature));
+          data.geometry.coordinates = JSON.stringify([lngLat.lng, lngLat.lat]);
+          await setDoc(doc(db, 'features', docId), data);
+        });
+
         const popup = new mapboxgl.Popup({ offset: [0, -27], closeButton: true, className: 'poi-popup' });
         
-        el.addEventListener('click', (e) => {
+        el.addEventListener('click', async (e) => {
           e.stopPropagation();
-          popup.setLngLat(coords)
+          
+          if (isEditMode && activeEditTool === 'delete') {
+            await deleteDoc(doc(db, 'features', feature.id));
+            return;
+          }
+          
+          if (isEditMode) return; // Disable popup in normal edit mode
+          
+          popup.setLngLat(marker.getLngLat())
             .setHTML(`
               <div class="popup-title">${props.name || 'Unnamed Point'}</div>
               <div class="popup-type">${props.type || 'POI'}</div>
-              ${props.description ? `<div class="popup-desc">${props.description}</div>` : ''}
               <div class="popup-actions" style="margin-top: 10px; display: flex; gap: 8px;">
-                <button class="btn btn-secondary btn-xs btn-route-start" style="padding: 4px 8px; font-size: 10px; border-radius: 4px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <button class="btn btn-secondary btn-xs btn-route-start" style="padding: 4px 8px; font-size: 10px; border-radius: 4px;">
                   <i data-lucide="flag" style="width: 12px; height: 12px;"></i> Start Here
                 </button>
-                <button class="btn btn-primary btn-xs btn-route-end" style="padding: 4px 8px; font-size: 10px; border-radius: 4px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <button class="btn btn-primary btn-xs btn-route-end" style="padding: 4px 8px; font-size: 10px; border-radius: 4px;">
                   <i data-lucide="navigation" style="width: 12px; height: 12px;"></i> End Here
                 </button>
               </div>
@@ -366,14 +428,15 @@ function renderMarkers(features) {
           setTimeout(() => {
             const btnStart = document.querySelector('.btn-route-start');
             const btnEnd = document.querySelector('.btn-route-end');
-            if (btnStart) btnStart.addEventListener('click', (ev) => { ev.stopPropagation(); setStartEndpoint(coords[0], coords[1]); popup.remove(); });
-            if (btnEnd) btnEnd.addEventListener('click', (ev) => { ev.stopPropagation(); setEndEndpoint(coords[0], coords[1]); popup.remove(); });
+            if (btnStart) btnStart.addEventListener('click', (ev) => { ev.stopPropagation(); setStartEndpoint(marker.getLngLat().lng, marker.getLngLat().lat); popup.remove(); });
+            if (btnEnd) btnEnd.addEventListener('click', (ev) => { ev.stopPropagation(); setEndEndpoint(marker.getLngLat().lng, marker.getLngLat().lat); popup.remove(); });
           }, 50);
         });
         
-        markers[feature.id] = { marker, el, props };
+        markers[feature.id] = { marker, el, props, feature };
       } else {
         markers[feature.id].marker.setLngLat(coords);
+        markers[feature.id].feature = feature; // update reference
       }
     }
   });
@@ -384,45 +447,30 @@ function renderMarkers(features) {
        delete markers[id];
     }
   }
-  
   if (window.lucide) window.lucide.createIcons();
 }
 
-// --- CLICK TO ROUTE LOGIC ---
-function setStartEndpoint(lng, lat) {
-  if (startCoords && endCoords) clearRoute();
+// Map Clicks for Point Creation
+async function onMapClick(e) {
+  if (e.originalEvent.target.closest('.mapboxgl-popup') || e.originalEvent.target.closest('.map-poi-marker') || e.originalEvent.target.closest('.mapboxgl-ctrl')) return;
   
-  startCoords = { lng, lat };
-  coordsStartDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
-  
-  if (startMarker) startMarker.remove();
-  const el = document.createElement('div');
-  el.className = 'custom-marker start';
-  startMarker = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
-    
-  clearRouteBtn.classList.remove('disabled');
-  clearRouteBtn.removeAttribute('disabled');
-  
-  if (endCoords) fetchShortestRoute();
-}
-
-function setEndEndpoint(lng, lat) {
-  if (!startCoords) { alert("Please select a starting point first."); return; }
-  
-  endCoords = { lng, lat };
-  coordsEndDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
-  
-  if (endMarker) endMarker.remove();
-  const el = document.createElement('div');
-  el.className = 'custom-marker end';
-  endMarker = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
-    
-  fetchShortestRoute();
-}
-
-function onMapClick(e) {
-  if (e.originalEvent.target.closest('.mapboxgl-popup')) return;
-  if (isEditMode) return; // Prevent routing clicks in edit mode
+  if (isEditMode) {
+    if (['house', 'school', 'shop', 'temple', 'church', 'landmark'].includes(activeEditTool)) {
+      const docId = doc(collection(db, 'features')).id;
+      const newFeature = {
+        type: "Feature",
+        id: docId,
+        properties: { type: activeEditTool, name: `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1)}` },
+        geometry: {
+          type: "Point",
+          coordinates: JSON.stringify([e.lngLat.lng, e.lngLat.lat])
+        }
+      };
+      await setDoc(doc(db, 'features', docId), newFeature);
+      resetActiveTool();
+    }
+    return;
+  }
   
   const coords = e.lngLat;
   if (!startCoords) setStartEndpoint(coords.lng, coords.lat);
@@ -430,70 +478,71 @@ function onMapClick(e) {
   else setStartEndpoint(coords.lng, coords.lat);
 }
 
-// --- CLIENT-SIDE ROUTE CALCULATION ---
+// --- CLICK TO ROUTE LOGIC ---
+function setStartEndpoint(lng, lat) {
+  if (startCoords && endCoords) clearRoute();
+  startCoords = { lng, lat };
+  coordsStartDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
+  if (startMarker) startMarker.remove();
+  const el = document.createElement('div');
+  el.className = 'custom-marker start';
+  startMarker = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
+  clearRouteBtn.classList.remove('disabled');
+  clearRouteBtn.removeAttribute('disabled');
+  if (endCoords) fetchShortestRoute();
+}
+
+function setEndEndpoint(lng, lat) {
+  if (!startCoords) { alert("Please select a starting point first."); return; }
+  endCoords = { lng, lat };
+  coordsEndDisplay.innerText = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
+  if (endMarker) endMarker.remove();
+  const el = document.createElement('div');
+  el.className = 'custom-marker end';
+  endMarker = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
+  fetchShortestRoute();
+}
+
 function fetchShortestRoute() {
   if (!startCoords || !endCoords) return;
-  
   const startSnap = findNearestNode(startCoords.lng, startCoords.lat);
   const endSnap = findNearestNode(endCoords.lng, endCoords.lat);
-  
-  if (!startSnap.node || !endSnap.node) { alert("Could not map coordinates to the road network."); return; }
-  
-  const maxSnapDist = 500.0;
-  if (startSnap.distance > maxSnapDist) { alert(`Start location too far (${startSnap.distance.toFixed(1)}m).`); clearRoute(); return; }
-  if (endSnap.distance > maxSnapDist) { alert(`Destination too far (${endSnap.distance.toFixed(1)}m).`); clearRoute(); return; }
+  if (!startSnap.node || !endSnap.node) return;
   
   const result = solveDijkstra(startSnap.node, endSnap.node);
-  
   if (result) {
     const routeGeoJSON = {
       type: "Feature",
       geometry: { type: "LineString", coordinates: result.path },
-      properties: {
-        distance_meters: result.distance,
-        snapped_start: { distance_meters: startSnap.distance, node_coordinates: startSnap.node },
-        snapped_end: { distance_meters: endSnap.distance, node_coordinates: endSnap.node }
-      }
+      properties: { distance_meters: result.distance, snapped_start: { distance_meters: startSnap.distance }, snapped_end: { distance_meters: endSnap.distance } }
     };
-    displayRoute(routeGeoJSON);
+    map.getSource('route').setData(routeGeoJSON);
+    routeDistanceDisplay.innerText = `${result.distance.toLocaleString()}m`;
+    snapStartDisplay.innerText = `${startSnap.distance.toFixed(1)}m`;
+    snapEndDisplay.innerText = `${endSnap.distance.toFixed(1)}m`;
+    routeStatsContainer.classList.remove('hidden');
+    
+    const bounds = new mapboxgl.LngLatBounds();
+    result.path.forEach(c => bounds.extend(c));
+    map.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 1000 });
   } else {
-    alert("No route exists between these two points.");
-    if (endMarker) { endMarker.remove(); endMarker = null; }
-    endCoords = null;
-    coordsEndDisplay.innerText = "Not selected";
+    alert("No route exists.");
+    if (endMarker) { endMarker.remove(); endMarker = null; endCoords = null; coordsEndDisplay.innerText = "Not selected"; }
   }
 }
 
-function displayRoute(routeGeoJSON) {
-  if (!map) return;
-  map.getSource('route').setData(routeGeoJSON);
-  
-  const props = routeGeoJSON.properties;
-  routeDistanceDisplay.innerText = `${props.distance_meters.toLocaleString()} meters (${(props.distance_meters / 1000).toFixed(2)} km)`;
-  snapStartDisplay.innerText = `${props.snapped_start.distance_meters.toFixed(1)}m`;
-  snapEndDisplay.innerText = `${props.snapped_end.distance_meters.toFixed(1)}m`;
-  routeStatsContainer.classList.remove('hidden');
-  
-  const bounds = new mapboxgl.LngLatBounds();
-  routeGeoJSON.geometry.coordinates.forEach(c => bounds.extend(c));
-  map.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 1000 });
-}
-
 function clearRoute() {
-  startCoords = null;
-  endCoords = null;
+  startCoords = null; endCoords = null;
   if (startMarker) { startMarker.remove(); startMarker = null; }
   if (endMarker) { endMarker.remove(); endMarker = null; }
   if (map && map.getSource('route')) map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
-  coordsStartDisplay.innerText = "Not selected";
-  coordsEndDisplay.innerText = "Not selected";
+  coordsStartDisplay.innerText = "Not selected"; coordsEndDisplay.innerText = "Not selected";
   routeStatsContainer.classList.add('hidden');
-  clearRouteBtn.classList.add('disabled');
-  clearRouteBtn.setAttribute('disabled', '');
+  clearRouteBtn.classList.add('disabled'); clearRouteBtn.setAttribute('disabled', '');
 }
 clearRouteBtn.addEventListener('click', clearRoute);
 
-// --- ROUTING ENGINE HELPER FUNCTIONS ---
+// --- ROUTING ENGINE ---
 function haversineDistance(c1, c2) {
   const R = 6371000.0, dLat = (c2[1]-c1[1])*Math.PI/180, dLon = (c2[0]-c1[0])*Math.PI/180;
   const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(c1[1]*Math.PI/180)*Math.cos(c2[1]*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
@@ -503,15 +552,10 @@ function haversineDistance(c1, c2) {
 function buildRoutingGraph(geojson) {
   for (const key in routingGraph) delete routingGraph[key];
   uniqueNodes.length = 0;
-  
   function getSnappedNode(coords) {
-    for (const node of uniqueNodes) {
-      if (haversineDistance(coords, node) <= SNAPPING_TOLERANCE_METERS) return node;
-    }
-    uniqueNodes.push(coords);
-    return coords;
+    for (const node of uniqueNodes) if (haversineDistance(coords, node) <= SNAPPING_TOLERANCE_METERS) return node;
+    uniqueNodes.push(coords); return coords;
   }
-  
   const lineStrings = geojson.features.filter(f => f.geometry && f.geometry.type === 'LineString');
   lineStrings.forEach(f => {
     const coords = f.geometry.coordinates;
@@ -531,26 +575,20 @@ function buildRoutingGraph(geojson) {
 
 function findNearestNode(lng, lat) {
   let nn = null, md = Infinity;
-  uniqueNodes.forEach(node => {
-    const d = haversineDistance([lng, lat], node);
-    if (d < md) { md = d; nn = node; }
-  });
+  uniqueNodes.forEach(n => { const d = haversineDistance([lng, lat], n); if (d < md) { md = d; nn = n; } });
   return { node: nn, distance: md };
 }
 
 function solveDijkstra(startNode, endNode) {
   const startKey = startNode.join(','), endKey = endNode.join(',');
   const dists = {}, prev = {}, queue = new Set();
-  
   uniqueNodes.forEach(n => { const k = n.join(','); dists[k] = Infinity; prev[k] = null; queue.add(k); });
   dists[startKey] = 0;
-  
   while (queue.size > 0) {
     let minK = null, minD = Infinity;
     queue.forEach(k => { if (dists[k] < minD) { minD = dists[k]; minK = k; } });
     if (minK === null || minK === endKey) break;
     queue.delete(minK);
-    
     (routingGraph[minK] || []).forEach(n => {
       const nK = n.node.join(',');
       if (!queue.has(nK)) return;
@@ -558,7 +596,6 @@ function solveDijkstra(startNode, endNode) {
       if (alt < dists[nK]) { dists[nK] = alt; prev[nK] = minK; }
     });
   }
-  
   const path = []; let curr = endKey;
   if (prev[curr] !== null || curr === startKey) {
     while (curr !== null) { path.unshift(curr.split(',').map(Number)); curr = prev[curr]; }
