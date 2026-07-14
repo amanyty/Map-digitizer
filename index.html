@@ -7,6 +7,7 @@
   
   <!-- Mapbox GL JS CSS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css" type="text/css" />
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -140,8 +141,11 @@
 
       <!-- Navigation/Quick Links -->
       <div class="sidebar-footer">
+        <button id="btn-toggle-edit" class="btn btn-secondary btn-full" style="margin-bottom: 8px;">
+          <i data-lucide="edit-2"></i> Enter Edit Mode
+        </button>
         <a href="./digitizer.html" class="btn btn-secondary btn-full">
-          <i data-lucide="edit-3"></i> Open Leaflet Digitizer
+          <i data-lucide="layout"></i> Open Legacy Digitizer
         </a>
         <div class="copyright">Baskhedi GIS Platform &copy; 2026</div>
       </div>
@@ -162,6 +166,24 @@
           </div>
           <div class="modal-buttons" style="width: 100%;">
             <button id="btn-save-token-modal" class="btn btn-primary" style="width: 100%;">Save and Load Map</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Modal -->
+      <div class="overlay-modal hidden" id="auth-modal">
+        <div class="modal-card">
+          <i data-lucide="lock" class="modal-icon text-indigo"></i>
+          <h2>Admin Login Required</h2>
+          <p>Please enter your email and password to access Edit Mode.</p>
+          <div class="form-group" style="width: 100%; margin-top: 8px;">
+            <input type="email" id="auth-email" class="form-control" placeholder="Email" style="margin-bottom: 8px;">
+            <input type="password" id="auth-password" class="form-control" placeholder="Password">
+          </div>
+          <p id="auth-error" style="color: #ef4444; font-size: 0.85rem; display: none; margin: 4px 0;">Error</p>
+          <div class="modal-buttons" style="width: 100%; display: flex; gap: 8px;">
+            <button id="btn-cancel-auth" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            <button id="btn-submit-auth" class="btn btn-primary" style="flex: 1;">Login</button>
           </div>
         </div>
       </div>
