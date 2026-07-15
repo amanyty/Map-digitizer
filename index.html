@@ -148,6 +148,7 @@
           <button class="btn-tool" data-type="power_center" title="Bijli Kendra"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="black" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="black" stroke-width="1"/><line x1="10" y1="6" x2="10" y2="18" stroke="black" stroke-width="1"/><line x1="14" y1="6" x2="14" y2="18" stroke="black" stroke-width="1"/><line x1="18" y1="6" x2="18" y2="18" stroke="black" stroke-width="1"/></svg></button>
           <button class="btn-tool" data-type="playground" title="Khel Maidan"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#22c55e" stroke-width="2"/></svg></button>
           <button class="btn-tool" data-type="well" title="Kuan/Tube Well"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><circle cx="12" cy="12" r="8" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2 2"/></svg></button>
+          <button class="btn-tool" data-type="misc" title="Miscellaneous / Other"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="#f43f5e"/><text x="12" y="16" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white" font-weight="bold">?</text></svg></button>
           <div class="tool-divider" style="width:100%; height:1px; background:#ccc; margin:4px 0;"></div>
           <button class="btn-tool danger" data-type="delete" title="Delete Mode"><i data-lucide="trash-2"></i></button>
         </div>
@@ -198,14 +199,24 @@
             
             <label for="poi-type" style="display:block; font-size: 0.85rem; font-weight: 500; margin-bottom:4px; color:#475569;">Type</label>
             <select id="poi-type" class="form-control" style="width: 100%; margin-bottom: 16px; padding: 8px; box-sizing:border-box;">
-              <option value="house">House</option>
-              <option value="shop">Shop</option>
-              <option value="school">School / Mandir</option>
-              <option value="church">Church / Anganwadi</option>
-              <option value="tree">Tree / Amavesh</option>
-              <option value="handpump">Handpump</option>
-              <option value="well">Kuan / Tube Well</option>
-              <option value="road">Road</option>
+              <option value="house">Makan (House)</option>
+              <option value="empty_house">Khali Makan (Empty House)</option>
+              <option value="house_solid">Makan Solid</option>
+              <option value="empty_house_solid">Khali Makan Solid</option>
+              <option value="service_provider">Seva Pradata / Shop</option>
+              <option value="temple_mosque">Mandir/Masjid</option>
+              <option value="school">Vidyalaya (School)</option>
+              <option value="govt_building">Shaskiya Bhavan (Govt Bldg)</option>
+              <option value="health_center">Up Swasthya Kendra (Clinic)</option>
+              <option value="tree">Ped (Tree)</option>
+              <option value="pond">Talab (Pond)</option>
+              <option value="handpump_working">Chalu Handpump (Working)</option>
+              <option value="handpump_broken">Kharab Handpump (Broken)</option>
+              <option value="tap_working">Chalu Nal (Working Tap)</option>
+              <option value="tap_broken">Kharab Nal (Broken Tap)</option>
+              <option value="open_defecation">Khule mein Shauch (ODF)</option>
+              <option value="well">Kuan/Tube Well</option>
+              <option value="misc">Miscellaneous / Other</option>
             </select>
           </div>
           <div class="modal-buttons" style="width: 100%; display: flex; gap: 8px;">

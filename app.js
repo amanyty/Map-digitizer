@@ -554,6 +554,7 @@ function renderMarkers(features) {
           power_center: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="black" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="black" stroke-width="1"/><line x1="10" y1="6" x2="10" y2="18" stroke="black" stroke-width="1"/><line x1="14" y1="6" x2="14" y2="18" stroke="black" stroke-width="1"/><line x1="18" y1="6" x2="18" y2="18" stroke="black" stroke-width="1"/></svg>',
           playground: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#22c55e" stroke-width="2"/></svg>',
           well: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><circle cx="12" cy="12" r="8" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2 2"/></svg>',
+          misc: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="#f43f5e"/><text x="12" y="16" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white" font-weight="bold">?</text></svg>'
         };
           let typeToUse = props.type || 'poi';
           // Legacy mappings for existing GeoJSON data
