@@ -30,7 +30,7 @@ const villageConfig = {
   baskhedi: {
     name: "Baskhedi",
     center: [75.2644, 24.2589],
-    imageOverlayUrl: "/baskhedi_stylized_map.png",
+    imageOverlayUrl: "/baskhedi_stylized_map.png?v=2",
     imageCoordinates: [
       [75.2595, 24.2634], // top-left
       [75.2693, 24.2634], // top-right
@@ -42,7 +42,7 @@ const villageConfig = {
   village2: {
     name: "Junapani (Map 2)",
     center: [74.6942, 21.6899], // Barwani exact center
-    imageOverlayUrl: "/map2.jpeg", 
+    imageOverlayUrl: "/map2.jpeg?v=2", 
     imageCoordinates: [
       [74.6850, 21.6950], // top-left
       [74.7050, 21.6950], // top-right
@@ -54,7 +54,7 @@ const villageConfig = {
   village3: {
     name: "Map 3",
     center: [75.2644, 24.2589], // Placeholder center
-    imageOverlayUrl: "/map3.jpeg", // Updated to the new image name
+    imageOverlayUrl: "/map3.jpeg?v=2", // Updated to the new image name
     imageCoordinates: [
       [75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]
     ],
