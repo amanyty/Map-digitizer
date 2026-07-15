@@ -178,7 +178,11 @@ function enableEditMode() {
     });
   }
   map.addControl(draw);
-  draw.set(currentGeoJSON);
+  const linesOnly = {
+      type: 'FeatureCollection',
+      features: currentGeoJSON.features.filter(f => f.geometry && f.geometry.type === 'LineString')
+  };
+  draw.set(linesOnly);
   
   map.on('draw.create', syncDrawToFirestore);
   map.on('draw.update', syncDrawToFirestore);
@@ -442,7 +446,11 @@ function loadFirestoreData() {
     renderMarkers(features);
     
     if (isEditMode && draw) {
-       draw.set(currentGeoJSON);
+       const linesOnly = {
+           type: 'FeatureCollection',
+           features: currentGeoJSON.features.filter(f => f.geometry && f.geometry.type === 'LineString')
+       };
+       draw.set(linesOnly);
     }
   });
 }
