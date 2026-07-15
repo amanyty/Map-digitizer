@@ -130,6 +130,14 @@ const btnSubmitAuth = document.getElementById('btn-submit-auth');
 const btnCancelAuth = document.getElementById('btn-cancel-auth');
 const authError = document.getElementById('auth-error');
 
+const poiModal = document.getElementById('poi-modal');
+const poiNameInput = document.getElementById('poi-name');
+const poiTypeInput = document.getElementById('poi-type');
+const btnSavePoi = document.getElementById('btn-save-poi');
+const btnCancelPoi = document.getElementById('btn-cancel-poi');
+const btnDeletePoi = document.getElementById('btn-delete-poi');
+let editingPoiId = null;
+let editingPoiCoords = null;
 const editToolbar = document.getElementById('edit-toolbar');
 const editStatusText = document.getElementById('edit-status-text');
 const toolBtns = document.querySelectorAll('.btn-tool');
@@ -166,6 +174,53 @@ btnSubmitAuth.addEventListener('click', async () => {
     authError.innerText = err.message;
     authError.style.display = 'block';
   }
+});
+
+// --- POI MODAL LOGIC ---
+btnCancelPoi.addEventListener('click', () => {
+  poiModal.classList.add('hidden');
+  resetActiveTool();
+});
+
+btnDeletePoi.addEventListener('click', async () => {
+  if (editingPoiId) {
+    await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, editingPoiId));
+    if (markers[editingPoiId]) {
+      markers[editingPoiId].marker.remove();
+      delete markers[editingPoiId];
+    }
+  }
+  poiModal.classList.add('hidden');
+  resetActiveTool();
+});
+
+btnSavePoi.addEventListener('click', async () => {
+  const name = poiNameInput.value.trim() || 'Custom POI';
+  const type = poiTypeInput.value;
+  
+  if (editingPoiId) {
+    // Update existing
+    await updateDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, editingPoiId), {
+      'properties.name': name,
+      'properties.type': type
+    });
+  } else if (editingPoiCoords) {
+    // Create new
+    const docId = doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
+    const newFeature = {
+      type: "Feature",
+      id: docId,
+      properties: { type: type, name: name },
+      geometry: {
+        type: "Point",
+        coordinates: JSON.stringify(editingPoiCoords)
+      }
+    };
+    await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), newFeature);
+  }
+  
+  poiModal.classList.add('hidden');
+  resetActiveTool();
 });
 
 function enableEditMode() {
@@ -583,6 +638,22 @@ function renderMarkers(features) {
           }, 50);
         });
         
+        // Add click listener to open the Edit POI modal
+        el.addEventListener('click', (e) => {
+          if (isEditMode && activeEditTool !== 'delete') {
+            e.stopPropagation();
+            editingPoiId = feature.id;
+            editingPoiCoords = null;
+            
+            poiNameInput.value = props.name || '';
+            poiTypeInput.value = props.type || 'poi';
+            
+            poiModal.classList.remove('hidden');
+            btnDeletePoi.style.display = 'block';
+            poiNameInput.focus();
+          }
+        });
+        
         markers[feature.id] = { marker, el, props, feature };
       } else {
         markers[feature.id].marker.setLngLat(coords);
@@ -606,18 +677,16 @@ async function onMapClick(e) {
   
   if (isEditMode) {
     if (activeEditTool && !['road', 'curved_road', 'canal', 'delete'].includes(activeEditTool)) {
-      const docId = doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
-      const newFeature = {
-        type: "Feature",
-        id: docId,
-        properties: { type: activeEditTool, name: `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1).replace(/_/g, ' ')}` },
-        geometry: {
-          type: "Point",
-          coordinates: JSON.stringify([e.lngLat.lng, e.lngLat.lat])
-        }
-      };
-      await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), newFeature);
-      resetActiveTool();
+      // Instead of instantly saving, open the modal to customize name and type
+      editingPoiId = null;
+      editingPoiCoords = [e.lngLat.lng, e.lngLat.lat];
+      
+      poiNameInput.value = `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1).replace(/_/g, ' ')}`;
+      poiTypeInput.value = activeEditTool;
+      
+      poiModal.classList.remove('hidden');
+      btnDeletePoi.style.display = 'none'; // Don't show delete when creating a new one
+      poiNameInput.focus();
     }
     return;
   }

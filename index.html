@@ -186,6 +186,35 @@
           </div>
         </div>
       </div>
+
+      <!-- POI Edit Modal -->
+      <div class="overlay-modal hidden" id="poi-modal">
+        <div class="modal-card" style="min-width: 300px;">
+          <i data-lucide="map-pin" class="modal-icon text-indigo"></i>
+          <h2 id="poi-modal-title">Edit POI Details</h2>
+          <div class="form-group" style="width: 100%; margin-top: 12px; text-align: left;">
+            <label for="poi-name" style="display:block; font-size: 0.85rem; font-weight: 500; margin-bottom:4px; color:#475569;">Name</label>
+            <input type="text" id="poi-name" class="form-control" placeholder="e.g. Clothing Shop" style="margin-bottom: 12px; width:100%; box-sizing:border-box;">
+            
+            <label for="poi-type" style="display:block; font-size: 0.85rem; font-weight: 500; margin-bottom:4px; color:#475569;">Type</label>
+            <select id="poi-type" class="form-control" style="width: 100%; margin-bottom: 16px; padding: 8px; box-sizing:border-box;">
+              <option value="house">House</option>
+              <option value="shop">Shop</option>
+              <option value="school">School / Mandir</option>
+              <option value="church">Church / Anganwadi</option>
+              <option value="tree">Tree / Amavesh</option>
+              <option value="handpump">Handpump</option>
+              <option value="well">Kuan / Tube Well</option>
+              <option value="road">Road</option>
+            </select>
+          </div>
+          <div class="modal-buttons" style="width: 100%; display: flex; gap: 8px;">
+            <button id="btn-delete-poi" class="btn btn-secondary danger" style="flex: 1; border-color:#ef4444; color:#ef4444;"><i data-lucide="trash-2" style="width:16px; height:16px; margin-right:4px; vertical-align:-3px;"></i>Delete</button>
+            <button id="btn-cancel-poi" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            <button id="btn-save-poi" class="btn btn-primary" style="flex: 1;">Save</button>
+          </div>
+        </div>
+      </div>
     </main>
 
   </div>
