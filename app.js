@@ -40,18 +40,21 @@ const villageConfig = {
     firestoreCollection: "features"
   },
   village2: {
-    name: "Village 2",
-    center: [75.2644, 24.2589], // Placeholder
-    imageOverlayUrl: "",
+    name: "Junapani (Map 2)",
+    center: [76.5600, 21.3600], // Khaknar approximate center
+    imageOverlayUrl: "/map2.jpeg", 
     imageCoordinates: [
-      [75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]
+      [76.5500, 21.3700], // top-left
+      [76.5700, 21.3700], // top-right
+      [76.5700, 21.3500], // bottom-right
+      [76.5500, 21.3500]  // bottom-left
     ],
     firestoreCollection: "features_village2"
   },
   village3: {
-    name: "Village 3",
-    center: [75.2644, 24.2589], // Placeholder
-    imageOverlayUrl: "",
+    name: "Map 3",
+    center: [75.2644, 24.2589], // Placeholder center
+    imageOverlayUrl: "/map3.jpeg", // Updated to the new image name
     imageCoordinates: [
       [75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]
     ],
