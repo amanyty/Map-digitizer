@@ -189,7 +189,7 @@ function enableEditMode() {
       if (e.features && e.features.length > 0) {
         const feature = e.features[0];
         if (feature.id) {
-          await deleteDoc(doc(db, 'features', feature.id));
+          await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, feature.id));
           draw.delete(feature.id);
         }
       }
@@ -542,7 +542,7 @@ function renderMarkers(features) {
           e.stopPropagation();
           
           if (isEditMode && activeEditTool === 'delete') {
-            await deleteDoc(doc(db, 'features', feature.id));
+            await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, feature.id));
             return;
           }
           
@@ -594,12 +594,12 @@ async function onMapClick(e) {
   if (e.originalEvent.target.closest('.mapboxgl-popup') || e.originalEvent.target.closest('.map-poi-marker') || e.originalEvent.target.closest('.mapboxgl-ctrl')) return;
   
   if (isEditMode) {
-    if (['house', 'school', 'shop', 'temple', 'church', 'landmark'].includes(activeEditTool)) {
+    if (activeEditTool && !['road', 'curved_road', 'canal', 'delete'].includes(activeEditTool)) {
       const docId = doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
       const newFeature = {
         type: "Feature",
         id: docId,
-        properties: { type: activeEditTool, name: `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1)}` },
+        properties: { type: activeEditTool, name: `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1).replace(/_/g, ' ')}` },
         geometry: {
           type: "Point",
           coordinates: JSON.stringify([e.lngLat.lng, e.lngLat.lat])
