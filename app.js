@@ -94,6 +94,13 @@ let isEditMode = false;
 let activeEditTool = null; // 'house', 'school', 'shop', 'temple', 'church', 'landmark', 'road', 'delete'
 const markers = {}; // HTML markers
 
+// POI State
+let editingPoiId = null;
+let editingPoiCoords = null;
+let defaultPoiName = '';
+let defaultPoiType = '';
+let rememberPoiDetails = false;
+
 // Routing coordinates state
 let startCoords = null; 
 let endCoords = null;   
@@ -197,6 +204,15 @@ btnDeletePoi.addEventListener('click', async () => {
 btnSavePoi.addEventListener('click', async () => {
   const name = poiNameInput.value.trim() || 'Custom POI';
   const type = poiTypeInput.value;
+  
+  const rememberCheckbox = document.getElementById('poi-remember');
+  if (rememberCheckbox && rememberCheckbox.checked) {
+    rememberPoiDetails = true;
+    defaultPoiName = name;
+    defaultPoiType = type;
+  } else {
+    rememberPoiDetails = false;
+  }
   
   if (editingPoiId) {
     // Update existing
@@ -595,7 +611,9 @@ function renderMarkers(features) {
           .addTo(map);
 
         // Handle Marker Drag
+        marker.on('dragstart', () => { el.setAttribute('data-dragging', 'true'); });
         marker.on('dragend', async () => {
+          setTimeout(() => el.removeAttribute('data-dragging'), 100);
           const lngLat = marker.getLngLat();
           const docId = feature.id;
           const data = JSON.parse(JSON.stringify(feature));
@@ -606,6 +624,7 @@ function renderMarkers(features) {
         const popup = new mapboxgl.Popup({ offset: [0, -27], closeButton: true, className: 'poi-popup' });
         
         el.addEventListener('click', async (e) => {
+          if (el.getAttribute('data-dragging') === 'true') { e.stopPropagation(); return; }
           e.stopPropagation();
           
           if (isEditMode && activeEditTool === 'delete') {
@@ -641,6 +660,7 @@ function renderMarkers(features) {
         
         // Add click listener to open the Edit POI modal
         el.addEventListener('click', (e) => {
+          if (el.getAttribute('data-dragging') === 'true') { e.stopPropagation(); return; }
           if (isEditMode && activeEditTool !== 'delete') {
             e.stopPropagation();
             editingPoiId = feature.id;
@@ -682,8 +702,16 @@ async function onMapClick(e) {
       editingPoiId = null;
       editingPoiCoords = [e.lngLat.lng, e.lngLat.lat];
       
-      poiNameInput.value = `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1).replace(/_/g, ' ')}`;
-      poiTypeInput.value = activeEditTool;
+      const rememberCheckbox = document.getElementById('poi-remember');
+      if (rememberPoiDetails && defaultPoiType) {
+        poiNameInput.value = defaultPoiName;
+        poiTypeInput.value = defaultPoiType;
+        if (rememberCheckbox) rememberCheckbox.checked = true;
+      } else {
+        poiNameInput.value = `${activeEditTool.charAt(0).toUpperCase() + activeEditTool.slice(1).replace(/_/g, ' ')}`;
+        poiTypeInput.value = activeEditTool;
+        if (rememberCheckbox) rememberCheckbox.checked = false;
+      }
       
       poiModal.classList.remove('hidden');
       btnDeletePoi.style.display = 'none'; // Don't show delete when creating a new one
