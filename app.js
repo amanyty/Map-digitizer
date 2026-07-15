@@ -30,7 +30,7 @@ const villageConfig = {
   baskhedi: {
     name: "Baskhedi",
     center: [75.2644, 24.2589],
-    imageOverlayUrl: "/baskhedi_stylized_map.png?v=2",
+    imageOverlayUrl: "/baskhedi_stylized_map.png?v=3",
     imageCoordinates: [
       [75.2595, 24.2634], // top-left
       [75.2693, 24.2634], // top-right
@@ -41,22 +41,25 @@ const villageConfig = {
   },
   village2: {
     name: "Junapani (Map 2)",
-    center: [74.6942, 21.6899], // Barwani exact center
-    imageOverlayUrl: "/map2.jpeg?v=2", 
+    center: [74.6942, 21.6899],
+    imageOverlayUrl: "/map2_stylized.jpeg?v=3", 
     imageCoordinates: [
-      [74.6850, 21.6950], // top-left
-      [74.7050, 21.6950], // top-right
-      [74.7050, 21.6850], // bottom-right
-      [74.6850, 21.6850]  // bottom-left
+      [74.6842, 21.7049], // top-left
+      [74.7042, 21.7049], // top-right
+      [74.7042, 21.6749], // bottom-right
+      [74.6842, 21.6749]  // bottom-left
     ],
     firestoreCollection: "features_village2"
   },
   village3: {
     name: "Map 3",
-    center: [75.2644, 24.2589], // Placeholder center
-    imageOverlayUrl: "/map3.jpeg?v=2", // Updated to the new image name
+    center: [75.2644, 24.2589],
+    imageOverlayUrl: "/map3.jpeg?v=3",
     imageCoordinates: [
-      [75.2595, 24.2634], [75.2693, 24.2634], [75.2693, 24.2544], [75.2595, 24.2544]
+      [75.2544, 24.2671], // top-left
+      [75.2744, 24.2671], // top-right
+      [75.2744, 24.2506], // bottom-right
+      [75.2544, 24.2506]  // bottom-left
     ],
     firestoreCollection: "features_village3"
   }
