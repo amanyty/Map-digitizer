@@ -521,7 +521,7 @@ function renderMarkers(features) {
           }
           
           el.innerHTML = `
-          <div class="poi-icon-wrapper" style="background: rgba(255, 255, 255, 0.7); border: 2px solid ${extractColor}; border-radius: 50%; padding: 4px; box-shadow: 2px 2px 0px rgba(0,0,0,0.1); color: ${extractColor};" title="${props.name || props.type || 'POI'}">
+          <div class="poi-icon-wrapper" style="color: ${extractColor}; display: flex; flex-direction: column; align-items: center;" title="${props.name || props.type || 'POI'}">
             ${iconHtml}
           </div>
           ${props.name ? `
