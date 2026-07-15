@@ -41,13 +41,13 @@ const villageConfig = {
   },
   village2: {
     name: "Junapani (Map 2)",
-    center: [76.5600, 21.3600], // Khaknar approximate center
+    center: [74.6942, 21.6899], // Barwani exact center
     imageOverlayUrl: "/map2.jpeg", 
     imageCoordinates: [
-      [76.5500, 21.3700], // top-left
-      [76.5700, 21.3700], // top-right
-      [76.5700, 21.3500], // bottom-right
-      [76.5500, 21.3500]  // bottom-left
+      [74.6850, 21.6950], // top-left
+      [74.7050, 21.6950], // top-right
+      [74.7050, 21.6850], // bottom-right
+      [74.6850, 21.6850]  // bottom-left
     ],
     firestoreCollection: "features_village2"
   },
