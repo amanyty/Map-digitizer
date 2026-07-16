@@ -866,11 +866,44 @@ if (btnPrintMap) {
   btnPrintMap.addEventListener('click', () => {
     if (map) {
       document.body.classList.add('is-printing');
+      
+      // Save current state
+      const currentZoom = map.getZoom();
+      const currentCenter = map.getCenter();
+      const currentPitch = map.getPitch();
+      const currentBearing = map.getBearing();
+
+      // Reset pitch and bearing for a flat top-down print
+      map.setPitch(0);
+      map.setBearing(0);
       map.resize();
+      
+      // Fit to image bounds
+      const config = villageConfig[currentVillageId];
+      if (config && config.imageCoordinates) {
+         const coords = config.imageCoordinates;
+         let minLng = coords[0][0], maxLng = coords[0][0];
+         let minLat = coords[0][1], maxLat = coords[0][1];
+         for(let i=1; i<coords.length; i++) {
+             minLng = Math.min(minLng, coords[i][0]);
+             maxLng = Math.max(maxLng, coords[i][0]);
+             minLat = Math.min(minLat, coords[i][1]);
+             maxLat = Math.max(maxLat, coords[i][1]);
+         }
+         map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 20, animate: false });
+      }
+
       setTimeout(() => {
         window.print();
         setTimeout(() => {
           document.body.classList.remove('is-printing');
+          // Restore previous state
+          map.jumpTo({
+             center: currentCenter,
+             zoom: currentZoom,
+             pitch: currentPitch,
+             bearing: currentBearing
+          });
           map.resize();
         }, 500);
       }, 1000);
