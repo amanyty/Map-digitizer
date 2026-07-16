@@ -939,12 +939,6 @@ if (btnPrintMap) {
 
 
 
-
-);
-}
-
-
-
 // --- CUSTOM BACKGROUND STORAGE (Firebase) ---
 async function saveCustomBackground(villageId, file) {
     const storageRef = ref(storage, `backgrounds/${villageId}_bg.jpg`);
