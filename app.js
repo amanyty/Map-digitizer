@@ -30,7 +30,7 @@ const villageConfig = {
   baskhedi: {
     name: "Baskhedi",
     center: [75.2644, 24.2589],
-    imageOverlayUrl: "/baskhedi_ultra.png?v=9",
+    imageOverlayUrl: "/baskhedi_stylized_map.png?v=10",
     imageCoordinates: [
       [75.2595, 24.2634], // top-left
       [75.2693, 24.2634], // top-right
