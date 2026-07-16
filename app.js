@@ -186,7 +186,6 @@ btnSubmitAuth.addEventListener('click', async () => {
 // --- POI MODAL LOGIC ---
 btnCancelPoi.addEventListener('click', () => {
   poiModal.classList.add('hidden');
-  resetActiveTool();
 });
 
 btnDeletePoi.addEventListener('click', async () => {
@@ -198,7 +197,6 @@ btnDeletePoi.addEventListener('click', async () => {
     }
   }
   poiModal.classList.add('hidden');
-  resetActiveTool();
 });
 
 btnSavePoi.addEventListener('click', async () => {
@@ -236,7 +234,6 @@ btnSavePoi.addEventListener('click', async () => {
   }
   
   poiModal.classList.add('hidden');
-  resetActiveTool();
 });
 
 function enableEditMode() {
@@ -353,7 +350,14 @@ async function syncDrawToFirestore(e) {
      data.geometry.coordinates = JSON.stringify(data.geometry.coordinates);
      await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), data);
   }
-  if (['road', 'curved_road', 'canal'].includes(activeEditTool)) resetActiveTool();
+  
+  if (['road', 'curved_road', 'canal'].includes(activeEditTool)) {
+    setTimeout(() => {
+      if (draw && ['road', 'curved_road', 'canal'].includes(activeEditTool)) {
+        draw.changeMode('draw_line_string');
+      }
+    }, 50);
+  }
 }
 
 async function deleteFromFirestore(e) {
