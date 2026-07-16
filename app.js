@@ -42,7 +42,7 @@ const villageConfig = {
   village2: {
     name: "Junapani (Map 2)",
     center: [74.6942, 21.6899],
-    imageOverlayUrl: "/map2_ultra.png?v=6", 
+    imageOverlayUrl: "/map2_enhanced.jpeg?v=2", 
     imageCoordinates: [
       [74.6842, 21.7049], // top-left
       [74.7042, 21.7049], // top-right
