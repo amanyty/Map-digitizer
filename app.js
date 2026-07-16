@@ -882,7 +882,6 @@ async function startup() {
   }
   initTokenState();
 }
-startup();
 
 
 if (btnPrintMap) {
@@ -1024,3 +1023,6 @@ if (btnResetBg) {
     }
   });
 }
+
+// Start app after all declarations are hoisted and initialized
+startup();
