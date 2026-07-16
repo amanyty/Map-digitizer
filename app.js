@@ -237,6 +237,8 @@ btnSavePoi.addEventListener('click', async () => {
 function enableEditMode() {
   isEditMode = true;
   editToolbar.classList.remove('hidden');
+  const customBgDetails = document.getElementById('custom-bg-details');
+  if (customBgDetails) customBgDetails.classList.remove('hidden');
   
   if (!map) return;
   
@@ -278,6 +280,8 @@ function enableEditMode() {
 function disableEditMode() {
   isEditMode = false;
   editToolbar.classList.add('hidden');
+  const customBgDetails = document.getElementById('custom-bg-details');
+  if (customBgDetails) customBgDetails.classList.add('hidden');
   resetActiveTool();
   
   if (map && draw) {
