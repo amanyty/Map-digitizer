@@ -30,7 +30,7 @@ const villageConfig = {
   baskhedi: {
     name: "Baskhedi",
     center: [75.2644, 24.2589],
-    imageOverlayUrl: "/baskhedi_stylized_map.png?v=10",
+    imageOverlayUrl: "/baskhedi_stylized_map.png?v=12",
     imageCoordinates: [
       [75.2595, 24.2634], // top-left
       [75.2693, 24.2634], // top-right
@@ -450,7 +450,12 @@ function initializeMap() {
                 'canal', '#0ea5e9',
                 /* default for road / curved_road */ '#000000'
             ],
-            'line-width': 3.5, 
+            'line-width': [
+                'match',
+                ['get', 'type'],
+                'canal', 6, // Make canal wider
+                3.5 // Default
+            ], 
             'line-opacity': 1.0 
         },
         layout: { 'line-join': 'round', 'line-cap': 'round' }
