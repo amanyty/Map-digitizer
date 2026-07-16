@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 
 const firebaseConfig = {
@@ -14,6 +15,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const auth = getAuth(app);
 
 // Initialize Lucide Icons on load
@@ -870,9 +872,9 @@ function solveDijkstra(startNode, endNode) {
 
 async function startup() {
   try {
-    const blob = await getCustomBackground(currentVillageId);
-    if (blob) {
-      window.customBgUrl = URL.createObjectURL(blob);
+    const url = await getCustomBackground(currentVillageId);
+    if (url) {
+      window.customBgUrl = url;
       if (document.getElementById('btn-reset-bg')) {
         document.getElementById('btn-reset-bg').disabled = false;
       }
@@ -938,55 +940,40 @@ if (btnPrintMap) {
 
 
 
-// --- CUSTOM BACKGROUND STORAGE (IndexedDB) ---
-const DB_NAME = "MapDigitizerDB";
-const STORE_NAME = "CustomBackgrounds";
-
-function openDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 1);
-        request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME);
-            }
-        };
-        request.onsuccess = (e) => resolve(e.target.result);
-        request.onerror = (e) => reject(e.target.error);
-    });
+);
 }
 
-async function saveCustomBackground(villageId, blob) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.put(blob, villageId);
-        tx.oncomplete = () => resolve();
-        tx.onerror = (e) => reject(e.target.error);
-    });
+
+
+// --- CUSTOM BACKGROUND STORAGE (Firebase) ---
+async function saveCustomBackground(villageId, file) {
+    const storageRef = ref(storage, `backgrounds/${villageId}_bg.jpg`);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    await setDoc(doc(db, "village_settings", villageId), {
+        customBackgroundUrl: downloadUrl
+    }, { merge: true });
+    return downloadUrl;
 }
 
 async function getCustomBackground(villageId) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(villageId);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = (e) => reject(e.target.error);
-    });
+    const docRef = doc(db, "village_settings", villageId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists() && docSnap.data().customBackgroundUrl) {
+        return docSnap.data().customBackgroundUrl;
+    }
+    return null;
 }
 
 async function clearCustomBackground(villageId) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.delete(villageId);
-        tx.oncomplete = () => resolve();
-        tx.onerror = (e) => reject(e.target.error);
-    });
+    const docRef = doc(db, "village_settings", villageId);
+    await setDoc(docRef, { customBackgroundUrl: null }, { merge: true });
+    try {
+        const storageRef = ref(storage, `backgrounds/${villageId}_bg.jpg`);
+        await deleteObject(storageRef);
+    } catch (e) {
+        console.warn("Could not delete from storage, might already be deleted", e);
+    }
 }
 
 const bgUploadInput = document.getElementById('bg-upload-input');
@@ -996,30 +983,37 @@ if (bgUploadInput) {
   bgUploadInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
-      await saveCustomBackground(currentVillageId, file);
-      const objUrl = URL.createObjectURL(file);
-      window.customBgUrl = objUrl;
-      
-      if (map && map.getSource('baskhedi-image')) {
-         map.getSource('baskhedi-image').updateImage({ url: objUrl });
+      bgUploadInput.disabled = true; // prevent multiple clicks
+      try {
+        const url = await saveCustomBackground(currentVillageId, file);
+        window.customBgUrl = url;
+        if (map && map.getSource('baskhedi-image')) {
+           map.getSource('baskhedi-image').updateImage({ url: url });
+        }
+        if (btnResetBg) btnResetBg.disabled = false;
+      } catch (e) {
+        console.error("Error saving background", e);
+        alert("Failed to upload background. Make sure you are logged in.");
+      } finally {
+        bgUploadInput.disabled = false;
       }
-      if (btnResetBg) btnResetBg.disabled = false;
     }
   });
 }
 
 if (btnResetBg) {
   btnResetBg.addEventListener('click', async () => {
-    await clearCustomBackground(currentVillageId);
-    if (window.customBgUrl) {
-       URL.revokeObjectURL(window.customBgUrl);
-       window.customBgUrl = null;
-    }
-    bgUploadInput.value = '';
     btnResetBg.disabled = true;
-    
-    if (map && map.getSource('baskhedi-image')) {
-       map.getSource('baskhedi-image').updateImage({ url: villageConfig[currentVillageId].imageOverlayUrl });
+    try {
+      await clearCustomBackground(currentVillageId);
+      window.customBgUrl = null;
+      bgUploadInput.value = '';
+      if (map && map.getSource('baskhedi-image')) {
+         map.getSource('baskhedi-image').updateImage({ url: villageConfig[currentVillageId].imageOverlayUrl });
+      }
+    } catch (e) {
+      console.error("Error clearing background", e);
+      btnResetBg.disabled = false; // re-enable if failed
     }
   });
 }
