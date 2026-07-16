@@ -59,6 +59,26 @@
         </div>
       </details>
 
+      <!-- Custom Background Configuration -->
+      <details class="config-panel" id="custom-bg-details">
+        <summary class="config-summary">
+          <div class="summary-title">
+            <i data-lucide="image" class="icon-small"></i>
+            <span>Custom Map Background</span>
+          </div>
+          <i data-lucide="chevron-down" class="chevron-icon"></i>
+        </summary>
+        <div class="config-content">
+          <p class="config-help">Upload a digital map image. Use exact dimensions as original for perfect alignment.</p>
+          <div class="token-input-group" style="display:flex; flex-direction:column; gap:8px;">
+            <input type="file" id="bg-upload-input" accept="image/*" class="form-control" style="font-size: 12px; padding: 4px;">
+            <button id="btn-reset-bg" class="btn btn-secondary danger" style="width:100%; font-size:12px; padding: 6px;" disabled>
+              <i data-lucide="trash-2" style="width:14px; height:14px; margin-right:4px;"></i> Reset to Default
+            </button>
+          </div>
+        </div>
+      </details>
+
       <!-- Network and POI Legend -->
       <div class="control-card">
         <h3 class="card-title">

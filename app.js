@@ -416,10 +416,14 @@ function initializeMap() {
     map.on('load', () => {
       // AI Generated stylized map overlay
       const vConfig = villageConfig[currentVillageId];
-      if (vConfig.imageOverlayUrl) {
+      let urlToUse = vConfig.imageOverlayUrl;
+      if (window.customBgUrl) {
+          urlToUse = window.customBgUrl;
+      }
+      if (urlToUse) {
           map.addSource('baskhedi-image', {
             type: 'image',
-            url: vConfig.imageOverlayUrl,
+            url: urlToUse,
             coordinates: vConfig.imageCoordinates
           });
           map.addLayer({
@@ -859,7 +863,22 @@ function solveDijkstra(startNode, endNode) {
   return null;
 }
 
-initTokenState();
+
+async function startup() {
+  try {
+    const blob = await getCustomBackground(currentVillageId);
+    if (blob) {
+      window.customBgUrl = URL.createObjectURL(blob);
+      if (document.getElementById('btn-reset-bg')) {
+        document.getElementById('btn-reset-bg').disabled = false;
+      }
+    }
+  } catch (e) {
+    console.error("Error loading custom background", e);
+  }
+  initTokenState();
+}
+startup();
 
 
 if (btnPrintMap) {
@@ -913,3 +932,91 @@ if (btnPrintMap) {
   });
 }
 
+
+
+
+// --- CUSTOM BACKGROUND STORAGE (IndexedDB) ---
+const DB_NAME = "MapDigitizerDB";
+const STORE_NAME = "CustomBackgrounds";
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function saveCustomBackground(villageId, blob) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(blob, villageId);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function getCustomBackground(villageId) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(villageId);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function clearCustomBackground(villageId) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(villageId);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e.target.error);
+    });
+}
+
+const bgUploadInput = document.getElementById('bg-upload-input');
+const btnResetBg = document.getElementById('btn-reset-bg');
+
+if (bgUploadInput) {
+  bgUploadInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      await saveCustomBackground(currentVillageId, file);
+      const objUrl = URL.createObjectURL(file);
+      window.customBgUrl = objUrl;
+      
+      if (map && map.getSource('baskhedi-image')) {
+         map.getSource('baskhedi-image').updateImage({ url: objUrl });
+      }
+      if (btnResetBg) btnResetBg.disabled = false;
+    }
+  });
+}
+
+if (btnResetBg) {
+  btnResetBg.addEventListener('click', async () => {
+    await clearCustomBackground(currentVillageId);
+    if (window.customBgUrl) {
+       URL.revokeObjectURL(window.customBgUrl);
+       window.customBgUrl = null;
+    }
+    bgUploadInput.value = '';
+    btnResetBg.disabled = true;
+    
+    if (map && map.getSource('baskhedi-image')) {
+       map.getSource('baskhedi-image').updateImage({ url: villageConfig[currentVillageId].imageOverlayUrl });
+    }
+  });
+}
