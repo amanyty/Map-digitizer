@@ -54,7 +54,7 @@ const villageConfig = {
   village3: {
     name: "Map 3",
     center: [75.2644, 24.2589],
-    imageOverlayUrl: "/map3.jpeg?v=3",
+    imageOverlayUrl: "/map3_enhanced.jpeg?v=1",
     imageCoordinates: [
       [75.2544, 24.2671], // top-left
       [75.2744, 24.2671], // top-right
