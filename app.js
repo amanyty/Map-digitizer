@@ -202,6 +202,9 @@ btnSavePoi.addEventListener('click', async () => {
   const name = poiNameInput.value.trim() || 'Custom POI';
   const type = poiTypeInput.value;
   
+  // Close the modal immediately so the UI feels snappy
+  poiModal.classList.add('hidden');
+  
   const rememberCheckbox = document.getElementById('poi-remember');
   if (rememberCheckbox && rememberCheckbox.checked) {
     rememberPoiDetails = true;
@@ -231,8 +234,6 @@ btnSavePoi.addEventListener('click', async () => {
     };
     await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), newFeature);
   }
-  
-  poiModal.classList.add('hidden');
 });
 
 function enableEditMode() {
