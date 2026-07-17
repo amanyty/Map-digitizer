@@ -130,6 +130,7 @@ const clearRouteBtn = document.getElementById('btn-clear-route');
 
 const btnToggleEdit = document.getElementById('btn-toggle-edit');
 const btnPrintMap = document.getElementById('btn-print-map');
+const btnExportGeoJSON = document.getElementById('btn-export-geojson');
 const authModal = document.getElementById('auth-modal');
 const authEmail = document.getElementById('auth-email');
 const authPassword = document.getElementById('auth-password');
@@ -883,6 +884,18 @@ async function startup() {
   initTokenState();
 }
 
+  
+  if (btnExportGeoJSON) {
+    btnExportGeoJSON.addEventListener('click', () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentGeoJSON, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href",     dataStr);
+      downloadAnchorNode.setAttribute("download", villageConfig[currentVillageId].name.replace(/\s+/g, '_') + "_export.geojson");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    });
+  }
 
 if (btnPrintMap) {
   btnPrintMap.addEventListener('click', () => {
