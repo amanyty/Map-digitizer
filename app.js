@@ -52,14 +52,14 @@ const villageConfig = {
     firestoreCollection: "features_village2"
   },
   village3: {
-    name: "Map 3",
-    center: [75.2644, 24.2589],
+    name: "Shivni Padawa (Map 3)",
+    center: [74.7000, 21.6500],
     imageOverlayUrl: "/map3_enhanced.jpeg?v=1",
     imageCoordinates: [
-      [75.2544, 24.2671], // top-left
-      [75.2744, 24.2671], // top-right
-      [75.2744, 24.2506], // bottom-right
-      [75.2544, 24.2506]  // bottom-left
+      [74.6850, 21.6650], // top-left
+      [74.7150, 21.6650], // top-right
+      [74.7150, 21.6350], // bottom-right
+      [74.6850, 21.6350]  // bottom-left
     ],
     firestoreCollection: "features_village3"
   }
