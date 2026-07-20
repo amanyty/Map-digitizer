@@ -260,6 +260,201 @@
             <button id="btn-save-poi" class="btn btn-primary" style="flex: 1;">Save</button>
           </div>
         </div>
+        </summary>
+        <div class="config-content">
+          <p class="config-help">Upload a digital map image. Use exact dimensions as original for perfect alignment.</p>
+          <div class="token-input-group" style="display:flex; flex-direction:column; gap:8px;">
+            <input type="file" id="bg-upload-input" accept="image/*" class="form-control" style="font-size: 12px; padding: 4px;">
+            <button id="btn-reset-bg" class="btn btn-secondary danger" style="width:100%; font-size:12px; padding: 6px;" disabled>
+              <i data-lucide="trash-2" style="width:14px; height:14px; margin-right:4px;"></i> Reset to Default
+            </button>
+          </div>
+        </div>
+      </details>
+
+      <!-- Network and POI Legend -->
+      <div class="control-card">
+        <h3 class="card-title">
+          <i data-lucide="layers"></i>
+          <span>Map Legend</span>
+        </h3>
+        <div class="legend-list">
+
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="none" stroke="#ef4444" stroke-width="2"/></svg></span><span class="legend-text">Makan (House)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="none" stroke="#ef4444" stroke-width="2"/></svg></span><span class="legend-text">Khali Makan</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="#ef4444"/></svg></span><span class="legend-text">Makan (Solid)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="#ef4444"/></svg></span><span class="legend-text">Khali Makan (Solid)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="#eab308"/></svg></span><span class="legend-text">Seva Pradata</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="white" stroke="black" stroke-width="2"/></svg></span><span class="legend-text">Mandir/Masjid</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#8B4513"/></svg></span><span class="legend-text">Vidyalaya</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#d946ef"/></svg></span><span class="legend-text">Shaskiya Bhavan</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="4" width="20" height="16" fill="white" stroke="black" stroke-width="1"/><path d="M12 7v10M7 12h10" stroke="#22c55e" stroke-width="4"/></svg></span><span class="legend-text">Up Swasthya Kendra</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="9" r="7" fill="#22c55e"/><path d="M12 16v6" stroke="#8B4513" stroke-width="3"/></svg></span><span class="legend-text">Ped (Tree)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#3b82f6" stroke-width="2"/><line x1="5" y1="8" x2="19" y2="8" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="3" y1="12" x2="21" y2="12" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="5" y1="16" x2="19" y2="16" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/></svg></span><span class="legend-text">Talab (Pond)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M6 14h2v6H6z" fill="#3b82f6"/></svg></span><span class="legend-text">Chalu Handpump</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M4 14l6 6M10 14l-6 6" stroke="#ef4444" stroke-width="2"/></svg></span><span class="legend-text">Kharab Handpump</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><circle cx="12" cy="18" r="3" fill="#3b82f6"/></svg></span><span class="legend-text">Chalu Nal</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><path d="M9 16l6 6M15 16l-6 6" stroke="#ef4444" stroke-width="2"/></svg></span><span class="legend-text">Kharab Nal</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12 2 22 7 22 17 12 22 2 17 2 7" fill="none" stroke="black" stroke-width="2"/></svg></span><span class="legend-text">Khule mein Shauch</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="black" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="black" stroke-width="2"/></svg></span><span class="legend-text">Sadak</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M2 10 Q12 0 22 10" fill="none" stroke="black" stroke-width="2"/><path d="M2 14 Q12 4 22 14" fill="none" stroke="black" stroke-width="2"/></svg></span><span class="legend-text">Ghumavdar Sadak</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="#0ea5e9" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="#0ea5e9" stroke-width="2"/></svg></span><span class="legend-text">Nahar (Canal)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6 Q12 2 18 6 v12 Q12 22 6 18 Z" fill="#3b82f6"/></svg></span><span class="legend-text">Pani ki Tanki</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="18" x2="21" y2="6" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="12" y2="6" stroke="black" stroke-width="2"/><line x1="12" y1="18" x2="21" y2="12" stroke="black" stroke-width="2"/></svg></span><span class="legend-text">Bhumigat Tank</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="black" stroke-width="2"/><line x1="4" y1="4" x2="20" y2="20" stroke="black" stroke-width="2"/><line x1="20" y1="4" x2="4" y2="20" stroke="black" stroke-width="2"/></svg></span><span class="legend-text">Transformer</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="21" y2="12" stroke="black" stroke-width="1"/><line x1="9" y1="6" x2="9" y2="18" stroke="black" stroke-width="1"/><line x1="15" y1="6" x2="15" y2="18" stroke="black" stroke-width="1"/></svg></span><span class="legend-text">Saur Plate (Solar)</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="black" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="black" stroke-width="1"/><line x1="10" y1="6" x2="10" y2="18" stroke="black" stroke-width="1"/><line x1="14" y1="6" x2="14" y2="18" stroke="black" stroke-width="1"/><line x1="18" y1="6" x2="18" y2="18" stroke="black" stroke-width="1"/></svg></span><span class="legend-text">Bijli Kendra</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#22c55e" stroke-width="2"/></svg></span><span class="legend-text">Khel Maidan</span></div>
+          <div class="legend-item"><span class="legend-icon-badge"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><circle cx="12" cy="12" r="8" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2 2"/></svg></span><span class="legend-text">Kuan/Tube Well</span></div>
+          </div>
+        </div>
+
+      <!-- Navigation/Quick Links -->
+      <div class="sidebar-footer">
+        <button id="btn-toggle-edit" class="btn btn-secondary btn-full" style="margin-bottom: 8px;">
+          <i data-lucide="edit-2"></i> Enter Edit Mode
+        </button>
+        <button id="btn-add-map" class="btn btn-primary btn-full hidden" style="margin-bottom: 8px; background-color: #10b981; border-color: #10b981;">
+          <i data-lucide="map"></i> Add New Map
+        </button>
+        <button id="btn-print-map" class="btn btn-primary btn-full" style="margin-bottom: 8px;">
+          <i data-lucide="printer"></i> Print Map
+        </button>
+        <button id="btn-export-geojson" class="btn btn-secondary btn-full" style="margin-bottom: 8px;">
+          <i data-lucide="download"></i> Export GeoJSON
+        </button>
+        <div class="copyright">Baskhedi GIS Platform &copy; 2026</div>
+      </div>
+    </aside>
+
+    <!-- Main Map Container -->
+    <main class="map-view">
+      <div id="map"></div>
+      
+      <!-- Edit Mode Toolbar (Floating) -->
+      <div class="edit-toolbar hidden" id="edit-toolbar">
+        <div class="edit-toolbar-header">
+          <i data-lucide="pen-tool"></i> Map Editor
+        </div>
+        <div class="edit-toolbar-tools" style="display:flex; flex-wrap:wrap; max-width: 250px; gap: 4px;">
+
+          <button class="btn-tool" data-type="house" title="Makan (House)"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="none" stroke="#ef4444" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="empty_house" title="Khali Makan"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="none" stroke="#ef4444" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="house_solid" title="Makan (Solid)"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="#ef4444"/></svg></button>
+          <button class="btn-tool" data-type="empty_house_solid" title="Khali Makan (Solid)"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="#ef4444"/></svg></button>
+          <button class="btn-tool" data-type="service_provider" title="Seva Pradata"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="#eab308"/></svg></button>
+          <button class="btn-tool" data-type="temple_mosque" title="Mandir/Masjid"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="white" stroke="black" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="school" title="Vidyalaya"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#8B4513"/></svg></button>
+          <button class="btn-tool" data-type="govt_building" title="Shaskiya Bhavan"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#d946ef"/></svg></button>
+          <button class="btn-tool" data-type="health_center" title="Up Swasthya Kendra"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="4" width="20" height="16" fill="white" stroke="black" stroke-width="1"/><path d="M12 7v10M7 12h10" stroke="#22c55e" stroke-width="4"/></svg></button>
+          <button class="btn-tool" data-type="tree" title="Ped (Tree)"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="9" r="7" fill="#22c55e"/><path d="M12 16v6" stroke="#8B4513" stroke-width="3"/></svg></button>
+          <button class="btn-tool" data-type="pond" title="Talab (Pond)"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#3b82f6" stroke-width="2"/><line x1="5" y1="8" x2="19" y2="8" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="3" y1="12" x2="21" y2="12" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="5" y1="16" x2="19" y2="16" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/></svg></button>
+          <div class="tool-divider" style="width:100%; height:1px; background:#ccc; margin:4px 0;"></div>
+          <button class="btn-tool" data-type="handpump_working" title="Chalu Handpump"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M6 14h2v6H6z" fill="#3b82f6"/></svg></button>
+          <button class="btn-tool" data-type="handpump_broken" title="Kharab Handpump"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M4 14l6 6M10 14l-6 6" stroke="#ef4444" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="tap_working" title="Chalu Nal"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><circle cx="12" cy="18" r="3" fill="#3b82f6"/></svg></button>
+          <button class="btn-tool" data-type="tap_broken" title="Kharab Nal"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><path d="M9 16l6 6M15 16l-6 6" stroke="#ef4444" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="open_defecation" title="Khule mein Shauch"><svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12 2 22 7 22 17 12 22 2 17 2 7" fill="none" stroke="black" stroke-width="2"/></svg></button>
+          <div class="tool-divider" style="width:100%; height:1px; background:#ccc; margin:4px 0;"></div>
+          <button class="btn-tool" data-type="road" title="Sadak"><svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="black" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="black" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="curved_road" title="Ghumavdar Sadak"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M2 10 Q12 0 22 10" fill="none" stroke="black" stroke-width="2"/><path d="M2 14 Q12 4 22 14" fill="none" stroke="black" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="canal" title="Nahar (Canal)"><svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="#0ea5e9" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="#0ea5e9" stroke-width="2"/></svg></button>
+          <div class="tool-divider" style="width:100%; height:1px; background:#ccc; margin:4px 0;"></div>
+          <button class="btn-tool" data-type="water_tank" title="Pani ki Tanki"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6 Q12 2 18 6 v12 Q12 22 6 18 Z" fill="#3b82f6"/></svg></button>
+          <button class="btn-tool" data-type="underground_tank" title="Bhumigat Tank"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="18" x2="21" y2="6" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="12" y2="6" stroke="black" stroke-width="2"/><line x1="12" y1="18" x2="21" y2="12" stroke="black" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="transformer" title="Transformer"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="black" stroke-width="2"/><line x1="4" y1="4" x2="20" y2="20" stroke="black" stroke-width="2"/><line x1="20" y1="4" x2="4" y2="20" stroke="black" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="solar_panel" title="Saur Plate (Solar)"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="21" y2="12" stroke="black" stroke-width="1"/><line x1="9" y1="6" x2="9" y2="18" stroke="black" stroke-width="1"/><line x1="15" y1="6" x2="15" y2="18" stroke="black" stroke-width="1"/></svg></button>
+          <button class="btn-tool" data-type="power_center" title="Bijli Kendra"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="black" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="black" stroke-width="1"/><line x1="10" y1="6" x2="10" y2="18" stroke="black" stroke-width="1"/><line x1="14" y1="6" x2="14" y2="18" stroke="black" stroke-width="1"/><line x1="18" y1="6" x2="18" y2="18" stroke="black" stroke-width="1"/></svg></button>
+          <button class="btn-tool" data-type="playground" title="Khel Maidan"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#22c55e" stroke-width="2"/></svg></button>
+          <button class="btn-tool" data-type="well" title="Kuan/Tube Well"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><circle cx="12" cy="12" r="8" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2 2"/></svg></button>
+          <button class="btn-tool" data-type="misc" title="Miscellaneous / Other"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="#f43f5e"/><text x="12" y="16" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white" font-weight="bold">?</text></svg></button>
+          <div class="tool-divider" style="width:100%; height:1px; background:#ccc; margin:4px 0;"></div>
+          <button class="btn-tool danger" data-type="delete" title="Delete Mode"><i data-lucide="trash-2"></i></button>
+        </div>
+        <div class="edit-status" id="edit-status-text">Click a tool or drag icons</div>
+      </div>
+      
+      <!-- Token Alert Overlay (Shows if map fails to load due to missing token) -->
+      <div class="overlay-modal" id="token-required-overlay">
+        <div class="modal-card">
+          <i data-lucide="map" class="modal-icon text-indigo"></i>
+          <h2>Mapbox Access Token Required</h2>
+          <p>This georeferenced route dashboard uses Mapbox GL JS. Please enter a valid Mapbox Access Token to load the map and roads.</p>
+          <div class="form-group" style="width: 100%; margin-top: 8px;">
+            <input type="text" id="mapbox-token-input-modal" class="form-control" placeholder="Paste pk.eyJ1... here" style="text-align: center;">
+          </div>
+          <div class="modal-buttons" style="width: 100%;">
+            <button id="btn-save-token-modal" class="btn btn-primary" style="width: 100%;">Save and Load Map</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Modal -->
+      <div class="overlay-modal hidden" id="auth-modal">
+        <div class="modal-card">
+          <i data-lucide="lock" class="modal-icon text-indigo"></i>
+          <h2>Admin Login Required</h2>
+          <p>Please enter your email and password to access Edit Mode.</p>
+          <div class="form-group" style="width: 100%; margin-top: 8px;">
+            <input type="email" id="auth-email" class="form-control" placeholder="Email" style="margin-bottom: 8px;">
+            <input type="password" id="auth-password" class="form-control" placeholder="Password">
+          </div>
+          <p id="auth-error" style="color: #ef4444; font-size: 0.85rem; display: none; margin: 4px 0;">Error</p>
+          <div class="modal-buttons" style="width: 100%; display: flex; gap: 8px;">
+            <button id="btn-cancel-auth" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            <button id="btn-submit-auth" class="btn btn-primary" style="flex: 1;">Login</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- POI Edit Modal -->
+      <div class="overlay-modal hidden" id="poi-modal">
+        <div class="modal-card" style="min-width: 300px;">
+          <i data-lucide="map-pin" class="modal-icon text-indigo"></i>
+          <h2 id="poi-modal-title">Edit POI Details</h2>
+          <div class="form-group" style="width: 100%; margin-top: 12px; text-align: left;">
+            <label for="poi-name" style="display:block; font-size: 0.85rem; font-weight: 500; margin-bottom:4px; color:#475569;">Name</label>
+            <input type="text" id="poi-name" class="form-control" placeholder="e.g. Clothing Shop" style="margin-bottom: 12px; width:100%; box-sizing:border-box;">
+            
+            <label for="poi-type" style="display:block; font-size: 0.85rem; font-weight: 500; margin-bottom:4px; color:#475569;">Type</label>
+            <select id="poi-type" class="form-control" style="width: 100%; margin-bottom: 16px; padding: 8px; box-sizing:border-box;">
+              <option value="house">Makan (House)</option>
+              <option value="empty_house">Khali Makan (Empty House)</option>
+              <option value="house_solid">Makan Solid</option>
+              <option value="empty_house_solid">Khali Makan Solid</option>
+              <option value="service_provider">Seva Pradata / Shop</option>
+              <option value="temple_mosque">Mandir/Masjid</option>
+              <option value="school">Vidyalaya (School)</option>
+              <option value="govt_building">Shaskiya Bhavan (Govt Bldg)</option>
+              <option value="health_center">Up Swasthya Kendra (Clinic)</option>
+              <option value="tree">Ped (Tree)</option>
+              <option value="pond">Talab (Pond)</option>
+              <option value="handpump_working">Chalu Handpump (Working)</option>
+              <option value="handpump_broken">Kharab Handpump (Broken)</option>
+              <option value="tap_working">Chalu Nal (Working Tap)</option>
+              <option value="tap_broken">Kharab Nal (Broken Tap)</option>
+              <option value="open_defecation">Khule mein Shauch (ODF)</option>
+              <option value="water_tank">Pani ki Tanki (Water Tank)</option>
+              <option value="underground_tank">Bhumigat Tank (Underground)</option>
+              <option value="transformer">Transformer</option>
+              <option value="solar_panel">Saur Plate (Solar Panel)</option>
+              <option value="power_center">Bijli Kendra (Power Center)</option>
+              <option value="playground">Khel Maidan (Playground)</option>
+              <option value="well">Kuan/Tube Well</option>
+              <option value="misc">Miscellaneous / Other</option>
+            </select>
+            
+            <div style="display: flex; align-items: center; margin-bottom: 16px;">
+              <input type="checkbox" id="poi-remember" style="margin-right: 8px;">
+              <label for="poi-remember" style="font-size: 0.85rem; color:#475569;">Remember Type and Name as Default</label>
+            </div>
+          </div>
+          <div class="modal-buttons" style="width: 100%; display: flex; gap: 8px;">
+            <button id="btn-delete-poi" class="btn btn-secondary danger" style="flex: 1; border-color:#ef4444; color:#ef4444;"><i data-lucide="trash-2" style="width:16px; height:16px; margin-right:4px; vertical-align:-3px;"></i>Delete</button>
+            <button id="btn-cancel-poi" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            <button id="btn-save-poi" class="btn btn-primary" style="flex: 1;">Save</button>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -269,11 +464,11 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Mapbox GL JS -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
-  <!-- App JS -->
-  
+
   <!-- New Map Modal -->
-  <div id="new-map-modal" class="modal-overlay hidden">
-    <div class="modal-content">
+  <div class="overlay-modal hidden" id="new-map-modal">
+    <div class="modal-card">
+      <i data-lucide="map" class="modal-icon text-indigo"></i>
       <h3>Create New Map</h3>
       <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Create a new blank map canvas. You can upload a custom background image after creation.</p>
       
