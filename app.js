@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc, getDocs } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 
@@ -26,16 +26,16 @@ let map = null;
 let mapboxToken = localStorage.getItem('mapbox_access_token') || '';
 
 // --- VILLAGE CONFIGURATION ---
-const villageConfig = {
+const defaultVillageConfig = {
   baskhedi: {
     name: "Baskhedi",
     center: [75.2644, 24.2589],
     imageOverlayUrl: "/baskhedi_enhanced.jpeg?v=14",
     imageCoordinates: [
-      [75.2595, 24.2634], // top-left
-      [75.2693, 24.2634], // top-right
-      [75.2693, 24.2544], // bottom-right
-      [75.2595, 24.2544]  // bottom-left
+      [75.2595, 24.2634],
+      [75.2693, 24.2634],
+      [75.2693, 24.2544],
+      [75.2595, 24.2544]
     ],
     firestoreCollection: "features"
   },
@@ -44,10 +44,10 @@ const villageConfig = {
     center: [74.6942, 21.6899],
     imageOverlayUrl: "/map2_enhanced.jpeg?v=3", 
     imageCoordinates: [
-      [74.6842, 21.7049], // top-left
-      [74.7042, 21.7049], // top-right
-      [74.7042, 21.6749], // bottom-right
-      [74.6842, 21.6749]  // bottom-left
+      [74.6842, 21.7049],
+      [74.7042, 21.7049],
+      [74.7042, 21.6749],
+      [74.6842, 21.6749]
     ],
     firestoreCollection: "features_village2"
   },
@@ -56,27 +56,39 @@ const villageConfig = {
     center: [75.2644, 24.2589],
     imageOverlayUrl: "/map3_enhanced.jpeg?v=1",
     imageCoordinates: [
-      [75.2544, 24.2671], // top-left
-      [75.2744, 24.2671], // top-right
-      [75.2744, 24.2506], // bottom-right
-      [75.2544, 24.2506]  // bottom-left
+      [75.2544, 24.2671],
+      [75.2744, 24.2671],
+      [75.2744, 24.2506],
+      [75.2544, 24.2506]
     ],
     firestoreCollection: "features_village3"
   }
 };
 
+let villageConfig = defaultVillageConfig;
 let currentVillageId = localStorage.getItem('current_village_id') || 'baskhedi';
 
-// Update title on load
 const villageTitle = document.getElementById('village-title');
-if (villageTitle && villageConfig[currentVillageId]) {
-  villageTitle.innerText = villageConfig[currentVillageId].name;
+const villageSelect = document.getElementById('village-select');
+
+function updateVillageUI() {
+  if (villageTitle && villageConfig[currentVillageId]) {
+    villageTitle.innerText = villageConfig[currentVillageId].name;
+  }
+  
+  if (villageSelect) {
+    villageSelect.innerHTML = '';
+    for (const [key, config] of Object.entries(villageConfig)) {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = config.name;
+      villageSelect.appendChild(option);
+    }
+    villageSelect.value = currentVillageId;
+  }
 }
 
-// Listen to village select dropdown
-const villageSelect = document.getElementById('village-select');
 if (villageSelect) {
-  villageSelect.value = currentVillageId;
   villageSelect.addEventListener('change', (e) => {
     currentVillageId = e.target.value;
     localStorage.setItem('current_village_id', currentVillageId);
@@ -242,6 +254,10 @@ function enableEditMode() {
   const customBgDetails = document.getElementById('custom-bg-details');
   if (customBgDetails) customBgDetails.classList.remove('hidden');
   
+  if (document.getElementById('btn-add-map')) {
+    document.getElementById('btn-add-map').classList.remove('hidden');
+  }
+  
   if (!map) return;
   
   if (!draw) {
@@ -284,6 +300,11 @@ function disableEditMode() {
   editToolbar.classList.add('hidden');
   const customBgDetails = document.getElementById('custom-bg-details');
   if (customBgDetails) customBgDetails.classList.add('hidden');
+  
+  if (document.getElementById('btn-add-map')) {
+    document.getElementById('btn-add-map').classList.add('hidden');
+  }
+
   resetActiveTool();
   
   if (map && draw) {
@@ -870,7 +891,95 @@ function solveDijkstra(startNode, endNode) {
 }
 
 
+const btnAddMap = document.getElementById('btn-add-map');
+const newMapModal = document.getElementById('new-map-modal');
+const btnCancelNewMap = document.getElementById('btn-cancel-new-map');
+const btnSaveNewMap = document.getElementById('btn-save-new-map');
+
+if (btnAddMap) {
+  btnAddMap.addEventListener('click', () => {
+    newMapModal.classList.remove('hidden');
+  });
+}
+
+if (btnCancelNewMap) {
+  btnCancelNewMap.addEventListener('click', () => {
+    newMapModal.classList.add('hidden');
+  });
+}
+
+if (btnSaveNewMap) {
+  btnSaveNewMap.addEventListener('click', async () => {
+    const mapNameInput = document.getElementById('new-map-name');
+    const mapLngInput = document.getElementById('new-map-lng');
+    const mapLatInput = document.getElementById('new-map-lat');
+
+    const name = mapNameInput.value.trim();
+    const lng = parseFloat(mapLngInput.value);
+    const lat = parseFloat(mapLatInput.value);
+
+    if (!name) return alert("Please enter a map name.");
+    
+    // Generate new unique ID
+    const newId = `village_${Date.now()}`;
+    const newConfig = {
+      name: name,
+      center: [lng, lat],
+      imageOverlayUrl: "", 
+      imageCoordinates: [
+        [lng - 0.01, lat + 0.01],
+        [lng + 0.01, lat + 0.01],
+        [lng + 0.01, lat - 0.01],
+        [lng - 0.01, lat - 0.01]
+      ],
+      firestoreCollection: `features_${newId}`
+    };
+    
+    // Stringify array for Firestore storage to avoid nested array issue
+    const firestoreData = { ...newConfig, imageCoordinates: JSON.stringify(newConfig.imageCoordinates) };
+    
+    try {
+      await setDoc(doc(db, 'maps', newId), firestoreData);
+      
+      // Update local config
+      villageConfig[newId] = newConfig;
+      
+      // Select it and reload
+      currentVillageId = newId;
+      localStorage.setItem('current_village_id', currentVillageId);
+      window.location.reload();
+    } catch (err) {
+      console.error("Error creating map", err);
+      alert("Failed to create map. Make sure you are authenticated.");
+    }
+  });
+}
+
 async function startup() {
+  try {
+    const mapsSnapshot = await getDocs(collection(db, 'maps'));
+    if (!mapsSnapshot.empty) {
+      const loadedConfigs = {};
+      mapsSnapshot.forEach(doc => {
+        let data = doc.data();
+        if (typeof data.imageCoordinates === 'string') {
+          data.imageCoordinates = JSON.parse(data.imageCoordinates);
+        }
+        loadedConfigs[doc.id] = data;
+      });
+      villageConfig = loadedConfigs;
+    }
+  } catch (err) {
+    console.error("Failed to load map configs from Firestore, using defaults", err);
+  }
+  
+  // Update UI and ensure currentVillageId is valid
+  if (!villageConfig[currentVillageId]) {
+    currentVillageId = Object.keys(villageConfig)[0];
+    localStorage.setItem('current_village_id', currentVillageId);
+  }
+  updateVillageUI();
+
   try {
     const url = await getCustomBackground(currentVillageId);
     if (url) {

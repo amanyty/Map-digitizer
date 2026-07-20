@@ -31,9 +31,7 @@
         <p class="subtitle">Georeferenced Route Dashboard</p>
         <div class="map-selector" style="margin-top: 15px; width: 100%;">
           <select id="village-select" class="form-control" style="width: 100%; padding: 8px; border-radius: 4px; background: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; font-weight: 500; font-family: 'Outfit', sans-serif;">
-            <option value="baskhedi">Baskhedi</option>
-            <option value="village2">Junapani (Map 2)</option>
-            <option value="village3">Map 3</option>
+            <!-- Options will be populated dynamically -->
           </select>
         </div>
       </div>
@@ -120,6 +118,9 @@
       <div class="sidebar-footer">
         <button id="btn-toggle-edit" class="btn btn-secondary btn-full" style="margin-bottom: 8px;">
           <i data-lucide="edit-2"></i> Enter Edit Mode
+        </button>
+        <button id="btn-add-map" class="btn btn-primary btn-full hidden" style="margin-bottom: 8px; background-color: #10b981; border-color: #10b981;">
+          <i data-lucide="map"></i> Add New Map
         </button>
         <button id="btn-print-map" class="btn btn-primary btn-full" style="margin-bottom: 8px;">
           <i data-lucide="printer"></i> Print Map
@@ -269,6 +270,34 @@
   <!-- Mapbox GL JS -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
   <!-- App JS -->
+  
+  <!-- New Map Modal -->
+  <div id="new-map-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3>Create New Map</h3>
+      <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Create a new blank map canvas. You can upload a custom background image after creation.</p>
+      
+      <label class="config-help">Map Name</label>
+      <input type="text" id="new-map-name" class="form-control" placeholder="e.g. Village 4" style="margin-bottom: 10px;">
+      
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <div style="flex: 1;">
+          <label class="config-help">Center Lng</label>
+          <input type="number" id="new-map-lng" class="form-control" step="0.0001" value="75.2644">
+        </div>
+        <div style="flex: 1;">
+          <label class="config-help">Center Lat</label>
+          <input type="number" id="new-map-lat" class="form-control" step="0.0001" value="24.2589">
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button id="btn-cancel-new-map" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+        <button id="btn-save-new-map" class="btn btn-primary" style="flex: 1;">Create Map</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./app.js"></script>
 </body>
 </html>
