@@ -1018,12 +1018,12 @@ if (btnPrintMap) {
       const currentPitch = map.getPitch();
       const currentBearing = map.getBearing();
 
-      // Reset pitch and bearing for a flat top-down print
+      // Reset pitch and bearing to 0 for a flat top-down 90° aerial view
       map.setPitch(0);
       map.setBearing(0);
       map.resize();
       
-      // Fit to image bounds
+      // Fit to image bounds with explicit pitch: 0 and bearing: 0
       const config = villageConfig[currentVillageId];
       if (config && config.imageCoordinates) {
          const coords = config.imageCoordinates;
@@ -1035,10 +1035,17 @@ if (btnPrintMap) {
              minLat = Math.min(minLat, coords[i][1]);
              maxLat = Math.max(maxLat, coords[i][1]);
          }
-         map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 20, animate: false });
+         map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { 
+           padding: 40, 
+           animate: false,
+           pitch: 0,
+           bearing: 0
+         });
       }
 
+      // Allow WebGL context to resize and re-render full canvas before triggering window.print
       setTimeout(() => {
+        map.resize();
         window.print();
         setTimeout(() => {
           document.body.classList.remove('is-printing');
@@ -1051,7 +1058,7 @@ if (btnPrintMap) {
           });
           map.resize();
         }, 500);
-      }, 1000);
+      }, 800);
     } else {
       window.print();
     }
