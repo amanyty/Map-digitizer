@@ -1060,65 +1060,100 @@ if (btnPrintMap) {
             <head>
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>${mapName} - Print View</title>
-              <style>
-                * { box-sizing: border-box; margin: 0; padding: 0; }
-                body {
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                  background-color: #0f172a;
-                  color: #ffffff;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  min-height: 100vh;
-                  padding: 16px;
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background-color: #0f172a;
+                color: #ffffff;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                padding: 16px;
+              }
+              .bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 56px;
+                background: #1e293b;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+                z-index: 99;
+              }
+              .bar h2 { font-size: 15px; font-weight: 600; }
+              .btn-print {
+                background: #10b981;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 14px;
+                cursor: pointer;
+              }
+              .img-container {
+                margin-top: 60px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+              }
+              img {
+                max-width: 100%;
+                max-height: calc(100vh - 80px);
+                height: auto;
+                object-fit: contain;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                background: white;
+              }
+              @media print {
+                @page {
+                  size: landscape;
+                  margin: 0;
                 }
-                .bar {
-                  position: fixed;
-                  top: 0;
-                  left: 0;
-                  right: 0;
-                  height: 56px;
-                  background: #1e293b;
-                  display: flex;
-                  align-items: center;
-                  justify-content: space-between;
-                  padding: 0 16px;
-                  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-                  z-index: 99;
+                html, body {
+                  width: 100% !important;
+                  height: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  overflow: hidden !important;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
-                .bar h2 { font-size: 15px; font-weight: 600; }
-                .btn-print {
-                  background: #10b981;
-                  color: white;
-                  border: none;
-                  padding: 8px 16px;
-                  border-radius: 8px;
-                  font-weight: 600;
-                  font-size: 14px;
-                  cursor: pointer;
-                }
+                .bar { display: none !important; }
                 .img-container {
-                  margin-top: 60px;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  width: 100%;
+                  width: 100vw !important;
+                  height: 100vh !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  display: flex !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                  page-break-inside: avoid !important;
+                  page-break-before: avoid !important;
+                  page-break-after: avoid !important;
                 }
                 img {
-                  max-width: 100%;
-                  height: auto;
-                  border-radius: 8px;
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-                  background: white;
+                  max-width: 100vw !important;
+                  max-height: 100vh !important;
+                  width: auto !important;
+                  height: auto !important;
+                  object-fit: contain !important;
+                  border-radius: 0 !important;
+                  box-shadow: none !important;
+                  page-break-inside: avoid !important;
                 }
-                @media print {
-                  .bar { display: none !important; }
-                  body { background: white !important; padding: 0 !important; }
-                  .img-container { margin: 0 !important; }
-                  img { max-width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
-                }
-              </style>
+              }
+            </style>
             </head>
             <body>
               <div class="bar">
