@@ -1009,59 +1009,154 @@ async function startup() {
 
 if (btnPrintMap) {
   btnPrintMap.addEventListener('click', () => {
-    if (map) {
-      document.body.classList.add('is-printing');
-      
-      // Save current state
-      const currentZoom = map.getZoom();
-      const currentCenter = map.getCenter();
-      const currentPitch = map.getPitch();
-      const currentBearing = map.getBearing();
+    if (!map) return window.print();
 
-      // Reset pitch and bearing to 0 for a flat top-down 90° aerial view
-      map.setPitch(0);
-      map.setBearing(0);
+    // Save current view state
+    const currentZoom = map.getZoom();
+    const currentCenter = map.getCenter();
+    const currentPitch = map.getPitch();
+    const currentBearing = map.getBearing();
+
+    // Reset pitch and bearing to 0 for a flat top-down 90° aerial view
+    map.setPitch(0);
+    map.setBearing(0);
+    map.resize();
+    
+    // Fit to image bounds with pitch: 0 and bearing: 0
+    const config = villageConfig[currentVillageId];
+    if (config && config.imageCoordinates) {
+       const coords = config.imageCoordinates;
+       let minLng = coords[0][0], maxLng = coords[0][0];
+       let minLat = coords[0][1], maxLat = coords[0][1];
+       for(let i=1; i<coords.length; i++) {
+           minLng = Math.min(minLng, coords[i][0]);
+           maxLng = Math.max(maxLng, coords[i][0]);
+           minLat = Math.min(minLat, coords[i][1]);
+           maxLat = Math.max(maxLat, coords[i][1]);
+       }
+       map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { 
+         padding: 40, 
+         animate: false,
+         pitch: 0,
+         bearing: 0
+       });
+    }
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+    setTimeout(() => {
       map.resize();
       
-      // Fit to image bounds with explicit pitch: 0 and bearing: 0
-      const config = villageConfig[currentVillageId];
-      if (config && config.imageCoordinates) {
-         const coords = config.imageCoordinates;
-         let minLng = coords[0][0], maxLng = coords[0][0];
-         let minLat = coords[0][1], maxLat = coords[0][1];
-         for(let i=1; i<coords.length; i++) {
-             minLng = Math.min(minLng, coords[i][0]);
-             maxLng = Math.max(maxLng, coords[i][0]);
-             minLat = Math.min(minLat, coords[i][1]);
-             maxLat = Math.max(maxLat, coords[i][1]);
-         }
-         map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { 
-           padding: 40, 
-           animate: false,
-           pitch: 0,
-           bearing: 0
-         });
-      }
+      if (isMobile) {
+        // Mobile browsers corrupt window.print() layout. Generate a clean high-res centered preview window instead.
+        const dataUrl = map.getCanvas().toDataURL('image/png');
+        const mapName = config ? config.name : 'Map';
+        
+        const printWin = window.open('', '_blank');
+        if (printWin) {
+          printWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>${mapName} - Print View</title>
+              <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  background-color: #0f172a;
+                  color: #ffffff;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  min-height: 100vh;
+                  padding: 16px;
+                }
+                .bar {
+                  position: fixed;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  height: 56px;
+                  background: #1e293b;
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  padding: 0 16px;
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+                  z-index: 99;
+                }
+                .bar h2 { font-size: 15px; font-weight: 600; }
+                .btn-print {
+                  background: #10b981;
+                  color: white;
+                  border: none;
+                  padding: 8px 16px;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  font-size: 14px;
+                  cursor: pointer;
+                }
+                .img-container {
+                  margin-top: 60px;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  width: 100%;
+                }
+                img {
+                  max-width: 100%;
+                  height: auto;
+                  border-radius: 8px;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                  background: white;
+                }
+                @media print {
+                  .bar { display: none !important; }
+                  body { background: white !important; padding: 0 !important; }
+                  .img-container { margin: 0 !important; }
+                  img { max-width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="bar">
+                <h2>${mapName} (Print Preview)</h2>
+                <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+              </div>
+              <div class="img-container">
+                <img src="${dataUrl}" alt="Digitized Map" />
+              </div>
+            </body>
+            </html>
+          `);
+          printWin.document.close();
+        } else {
+          // Fallback if popup blocked
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = `${mapName}_digitized_map.png`;
+          a.click();
+        }
 
-      // Allow WebGL context to resize and re-render full canvas before triggering window.print
-      setTimeout(() => {
-        map.resize();
+        // Restore view state
+        setTimeout(() => {
+          map.jumpTo({ center: currentCenter, zoom: currentZoom, pitch: currentPitch, bearing: currentBearing });
+          map.resize();
+        }, 500);
+
+      } else {
+        // Desktop window print
+        document.body.classList.add('is-printing');
         window.print();
         setTimeout(() => {
           document.body.classList.remove('is-printing');
-          // Restore previous state
-          map.jumpTo({
-             center: currentCenter,
-             zoom: currentZoom,
-             pitch: currentPitch,
-             bearing: currentBearing
-          });
+          map.jumpTo({ center: currentCenter, zoom: currentZoom, pitch: currentPitch, bearing: currentBearing });
           map.resize();
         }, 500);
-      }, 800);
-    } else {
-      window.print();
-    }
+      }
+    }, 800);
   });
 }
 
