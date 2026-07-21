@@ -997,6 +997,7 @@ details[open] .chevron-icon {
 
 
 /* --- PRINT STYLES --- */
+/* Live map expanded while preparing a print capture */
 body.is-printing,
 body.is-printing html {
   width: 100% !important;
@@ -1015,10 +1016,13 @@ body.is-printing .mapboxgl-control-container {
 }
 
 body.is-printing .dashboard-container,
-body.is-printing .map-view {
+body.is-printing .map-view,
+body.is-printing #map {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
   margin: 0 !important;
@@ -1027,15 +1031,15 @@ body.is-printing .map-view {
   z-index: 99999 !important;
 }
 
-body.is-printing #map {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  margin: 0 !important;
+body.is-printing #map .mapboxgl-canvas-container,
+body.is-printing #map canvas.mapboxgl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* In-page fallback when popups are blocked */
+#print-sheet {
+  display: none;
 }
 
 @media print {
@@ -1055,31 +1059,50 @@ body.is-printing #map {
     print-color-adjust: exact !important;
   }
 
-  .dashboard-container,
-  .map-view {
+  /* Preferred path: centered image sheet */
+  body.print-sheet-active > *:not(#print-sheet) {
+    display: none !important;
+  }
+
+  body.print-sheet-active #print-sheet {
+    display: flex !important;
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: white !important;
+    z-index: 2147483647 !important;
+  }
+
+  body.print-sheet-active #print-sheet img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+
+  /* Live-map fallback */
+  body.is-printing:not(.print-sheet-active) .sidebar,
+  body.is-printing:not(.print-sheet-active) .edit-toolbar,
+  body.is-printing:not(.print-sheet-active) .overlay-modal,
+  body.is-printing:not(.print-sheet-active) .mapboxgl-control-container {
+    display: none !important;
+  }
+
+  body.is-printing:not(.print-sheet-active) .dashboard-container,
+  body.is-printing:not(.print-sheet-active) .map-view,
+  body.is-printing:not(.print-sheet-active) #map {
+    position: fixed !important;
+    inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
-  }
-
-  .sidebar,
-  .edit-toolbar,
-  .overlay-modal,
-  .mapboxgl-control-container {
-    display: none !important;
-  }
-
-  #map {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    margin: 0 !important;
   }
 }

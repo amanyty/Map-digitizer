@@ -1040,53 +1040,257 @@ if (btnExportGeoJSON) {
   });
 }
 
+function waitForMapIdle(timeoutMs = 900) {
+  return new Promise((resolve) => {
+    if (!map) return resolve();
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    map.once('idle', done);
+    setTimeout(done, timeoutMs);
+  });
+}
+
+function getVillageBounds(config) {
+  if (!config || !config.imageCoordinates || !config.imageCoordinates.length) return null;
+  const coords = config.imageCoordinates;
+  let minLng = coords[0][0], maxLng = coords[0][0];
+  let minLat = coords[0][1], maxLat = coords[0][1];
+  for (let i = 1; i < coords.length; i++) {
+    minLng = Math.min(minLng, coords[i][0]);
+    maxLng = Math.max(maxLng, coords[i][0]);
+    minLat = Math.min(minLat, coords[i][1]);
+    maxLat = Math.max(maxLat, coords[i][1]);
+  }
+  return [[minLng, minLat], [maxLng, maxLat]];
+}
+
+/** Capture WebGL map + HTML POI markers into a single PNG data URL. */
+function captureMapForPrint() {
+  const glCanvas = map.getCanvas();
+  const out = document.createElement('canvas');
+  out.width = glCanvas.width;
+  out.height = glCanvas.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(glCanvas, 0, 0);
+
+  const scaleX = glCanvas.width / Math.max(glCanvas.clientWidth, 1);
+  const scaleY = glCanvas.height / Math.max(glCanvas.clientHeight, 1);
+  const scale = (scaleX + scaleY) / 2;
+
+  for (const id of Object.keys(markers)) {
+    const entry = markers[id];
+    if (!entry || !entry.marker) continue;
+    const ll = entry.marker.getLngLat();
+    const p = map.project(ll);
+    const x = p.x * scaleX;
+    const y = p.y * scaleY;
+    if (x < -40 || y < -40 || x > out.width + 40 || y > out.height + 40) continue;
+
+    const props = (entry.feature && entry.feature.properties) || entry.props || {};
+    const iconWrap = entry.el && entry.el.querySelector ? entry.el.querySelector('.poi-icon-wrapper') : null;
+    let color = '#f43f5e';
+    if (iconWrap) {
+      const cs = getComputedStyle(iconWrap).color;
+      if (cs) color = cs;
+    }
+
+    const r = Math.max(4, 5 * scale);
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, 2 * scale);
+    ctx.arc(x, y - r * 0.4, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (props.name) {
+      const fontSize = Math.max(10, 11 * scale);
+      ctx.font = '600 ' + fontSize + 'px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const textY = y + r + 2 * scale;
+      ctx.lineWidth = Math.max(2, 3 * scale);
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.fillStyle = '#111827';
+      ctx.strokeText(props.name, x, textY);
+      ctx.fillText(props.name, x, textY);
+    }
+  }
+
+  return out.toDataURL('image/png');
+}
+
+function openCenteredPrintWindow(mapName, dataUrl) {
+  const safeTitle = String(mapName || 'Map').replace(/[<>&"']/g, '');
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${safeTitle} - Print</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #0f172a; color: #fff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    .bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; background: #1e293b; z-index: 10;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    .bar h1 { font-size: 15px; font-weight: 600; }
+    .btn {
+      background: #10b981; color: #fff; border: 0; border-radius: 8px;
+      padding: 8px 16px; font-weight: 600; cursor: pointer; font-size: 14px;
+    }
+    .stage {
+      min-height: 100%;
+      padding: 72px 16px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage img {
+      max-width: 100%;
+      max-height: calc(100vh - 88px);
+      width: auto; height: auto;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    }
+    @media print {
+      @page { size: landscape; margin: 0; }
+      html, body {
+        width: 100% !important; height: 100% !important;
+        background: #fff !important; overflow: hidden !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .bar { display: none !important; }
+      .stage {
+        position: fixed !important;
+        inset: 0 !important;
+        min-height: 0 !important;
+        width: 100% !important; height: 100% !important;
+        margin: 0 !important; padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      .stage img {
+        max-width: 100% !important; max-height: 100% !important;
+        width: auto !important; height: auto !important;
+        object-fit: contain !important;
+        border-radius: 0 !important; box-shadow: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1>${safeTitle} (Print Preview)</h1>
+    <button class="btn" onclick="window.print()">Print / Save PDF</button>
+  </div>
+  <div class="stage">
+    <img id="print-img" src="${dataUrl}" alt="${safeTitle}" />
+  </div>
+  <script>
+    (function () {
+      var img = document.getElementById('print-img');
+      function go() { setTimeout(function () { window.focus(); window.print(); }, 150); }
+      if (img.complete) go();
+      else img.onload = go;
+    })();
+  </script>
+</body>
+</html>`;
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) return false;
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+  return true;
+}
+
 if (btnPrintMap) {
-  btnPrintMap.addEventListener('click', () => {
+  btnPrintMap.addEventListener('click', async () => {
     if (!map) return window.print();
 
-    // Save current view state
     const currentZoom = map.getZoom();
     const currentCenter = map.getCenter();
     const currentPitch = map.getPitch();
     const currentBearing = map.getBearing();
-
-    // Force flat 90° top-down view
-    map.easeTo({ pitch: 0, bearing: 0, duration: 0 });
-    map.setPitch(0);
-    map.setBearing(0);
-
-    // Fit to village boundary
     const config = villageConfig[currentVillageId];
-    if (config && config.imageCoordinates) {
-      const coords = config.imageCoordinates;
-      let minLng = coords[0][0], maxLng = coords[0][0];
-      let minLat = coords[0][1], maxLat = coords[0][1];
-      for (let i = 1; i < coords.length; i++) {
-        minLng = Math.min(minLng, coords[i][0]);
-        maxLng = Math.max(maxLng, coords[i][0]);
-        minLat = Math.min(minLat, coords[i][1]);
-        maxLat = Math.max(maxLat, coords[i][1]);
-      }
-      map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-        padding: 30,
-        animate: false,
-        pitch: 0,
-        bearing: 0
-      });
-    }
+    const mapName = (config && config.name) || 'Map';
 
-    document.body.classList.add('is-printing');
-
-    setTimeout(() => {
-      map.resize();
-      window.print();
-
-      setTimeout(() => {
-        document.body.classList.remove('is-printing');
-        map.jumpTo({ center: currentCenter, zoom: currentZoom, pitch: currentPitch, bearing: currentBearing });
+    const restore = () => {
+      document.body.classList.remove('is-printing');
+      document.body.classList.remove('print-sheet-active');
+      const sheet = document.getElementById('print-sheet');
+      if (sheet) sheet.remove();
+      try {
+        map.jumpTo({
+          center: currentCenter,
+          zoom: currentZoom,
+          pitch: currentPitch,
+          bearing: currentBearing
+        });
         map.resize();
-      }, 500);
-    }, 400);
+      } catch (_) { /* map may be disposed */ }
+    };
+
+    try {
+      map.setPitch(0);
+      map.setBearing(0);
+
+      // Expand map to full viewport BEFORE fitting bounds (prevents off-center print)
+      document.body.classList.add('is-printing');
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      map.resize();
+
+      const bounds = getVillageBounds(config);
+      if (bounds) {
+        map.fitBounds(bounds, {
+          padding: 40,
+          animate: false,
+          pitch: 0,
+          bearing: 0
+        });
+      }
+      await waitForMapIdle(1000);
+
+      const dataUrl = captureMapForPrint();
+      const opened = openCenteredPrintWindow(mapName, dataUrl);
+
+      if (!opened) {
+        // Popup blocked: in-page centered print sheet
+        let sheet = document.getElementById('print-sheet');
+        if (!sheet) {
+          sheet = document.createElement('div');
+          sheet.id = 'print-sheet';
+          document.body.appendChild(sheet);
+        }
+        sheet.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = mapName;
+        sheet.appendChild(img);
+        document.body.classList.add('print-sheet-active');
+        await new Promise((r) => setTimeout(r, 120));
+        window.print();
+      }
+    } finally {
+      setTimeout(restore, 500);
+    }
   });
 }
 
