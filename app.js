@@ -1040,6 +1040,9 @@ if (btnExportGeoJSON) {
   });
 }
 
+/** A4 landscape aspect ratio (297mm / 210mm). */
+const A4_LANDSCAPE_RATIO = 297 / 210;
+
 function waitForMapIdle(timeoutMs = 900) {
   return new Promise((resolve) => {
     if (!map) return resolve();
@@ -1068,6 +1071,55 @@ function getVillageBounds(config) {
   return [[minLng, minLat], [maxLng, maxLat]];
 }
 
+function isMobilePrintClient() {
+  return window.innerWidth <= 768
+    || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+}
+
+/**
+ * Size the map container for an A4-landscape capture so the PNG is large
+ * enough to print full-page (not a tiny phone-resolution snapshot).
+ * Returns a restore() function.
+ */
+function applyPrintCaptureSize() {
+  const mapEl = document.getElementById('map');
+  const mapView = document.querySelector('.map-view');
+  const dash = document.querySelector('.dashboard-container');
+  if (!mapEl) return () => {};
+
+  // ~150–180 DPI A4 landscape in CSS px. Mobile uses a slightly smaller
+  // size to stay within WebGL memory limits (actual canvas = size * DPR).
+  const cssW = isMobilePrintClient() ? 1600 : 2000;
+  const cssH = Math.round(cssW / A4_LANDSCAPE_RATIO);
+
+  const targets = [mapEl, mapView, dash].filter(Boolean);
+  const prev = targets.map((el) => ({
+    el,
+    cssText: el.style.cssText
+  }));
+
+  for (const el of targets) {
+    el.style.setProperty('position', 'fixed', 'important');
+    el.style.setProperty('top', '0', 'important');
+    el.style.setProperty('left', '0', 'important');
+    el.style.setProperty('right', 'auto', 'important');
+    el.style.setProperty('bottom', 'auto', 'important');
+    el.style.setProperty('width', cssW + 'px', 'important');
+    el.style.setProperty('height', cssH + 'px', 'important');
+    el.style.setProperty('max-width', 'none', 'important');
+    el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('margin', '0', 'important');
+    el.style.setProperty('padding', '0', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+  }
+
+  return () => {
+    for (const { el, cssText } of prev) {
+      el.style.cssText = cssText;
+    }
+  };
+}
+
 /** Capture WebGL map + HTML POI markers into a single PNG data URL. */
 function captureMapForPrint() {
   const glCanvas = map.getCanvas();
@@ -1075,6 +1127,9 @@ function captureMapForPrint() {
   out.width = glCanvas.width;
   out.height = glCanvas.height;
   const ctx = out.getContext('2d');
+  // White page background so letterboxing (if any) is clean on paper
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(glCanvas, 0, 0);
 
   const scaleX = glCanvas.width / Math.max(glCanvas.clientWidth, 1);
@@ -1158,38 +1213,57 @@ function openCenteredPrintWindow(mapName, dataUrl) {
       justify-content: center;
     }
     .stage img {
-      max-width: 100%;
+      /* Preview: large as screen allows */
+      width: min(100%, 100vw);
+      height: auto;
       max-height: calc(100vh - 88px);
-      width: auto; height: auto;
       object-fit: contain;
       background: #fff;
       border-radius: 8px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.35);
     }
     @media print {
-      @page { size: landscape; margin: 0; }
+      /* Explicit A4 landscape so mobile PDF printers fill the page */
+      @page {
+        size: A4 landscape;
+        margin: 0;
+      }
       html, body {
-        width: 100% !important; height: 100% !important;
-        background: #fff !important; overflow: hidden !important;
+        width: 297mm !important;
+        height: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        overflow: hidden !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .bar { display: none !important; }
       .stage {
         position: fixed !important;
-        inset: 0 !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 297mm !important;
+        height: 210mm !important;
         min-height: 0 !important;
-        width: 100% !important; height: 100% !important;
-        margin: 0 !important; padding: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        background: #fff !important;
       }
       .stage img {
-        max-width: 100% !important; max-height: 100% !important;
-        width: auto !important; height: auto !important;
+        /* Stretch to full A4 page while keeping aspect ratio */
+        width: 297mm !important;
+        height: 210mm !important;
+        max-width: 297mm !important;
+        max-height: 210mm !important;
         object-fit: contain !important;
-        border-radius: 0 !important; box-shadow: none !important;
+        object-position: center center !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: #fff !important;
       }
     }
   </style>
@@ -1205,7 +1279,7 @@ function openCenteredPrintWindow(mapName, dataUrl) {
   <script>
     (function () {
       var img = document.getElementById('print-img');
-      function go() { setTimeout(function () { window.focus(); window.print(); }, 150); }
+      function go() { setTimeout(function () { window.focus(); window.print(); }, 200); }
       if (img.complete) go();
       else img.onload = go;
     })();
@@ -1231,8 +1305,10 @@ if (btnPrintMap) {
     const currentBearing = map.getBearing();
     const config = villageConfig[currentVillageId];
     const mapName = (config && config.name) || 'Map';
+    let restoreCaptureSize = () => {};
 
     const restore = () => {
+      try { restoreCaptureSize(); } catch (_) { /* ignore */ }
       document.body.classList.remove('is-printing');
       document.body.classList.remove('print-sheet-active');
       const sheet = document.getElementById('print-sheet');
@@ -1252,27 +1328,33 @@ if (btnPrintMap) {
       map.setPitch(0);
       map.setBearing(0);
 
-      // Expand map to full viewport BEFORE fitting bounds (prevents off-center print)
+      // Full-screen prep, then force A4-landscape capture dimensions
       document.body.classList.add('is-printing');
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      restoreCaptureSize = applyPrintCaptureSize();
       map.resize();
 
       const bounds = getVillageBounds(config);
       if (bounds) {
         map.fitBounds(bounds, {
-          padding: 40,
+          padding: 48,
           animate: false,
           pitch: 0,
           bearing: 0
         });
       }
-      await waitForMapIdle(1000);
+      await waitForMapIdle(1200);
 
       const dataUrl = captureMapForPrint();
+      // Restore interactive layout before opening the print dialog
+      restoreCaptureSize();
+      restoreCaptureSize = () => {};
+      map.resize();
+
       const opened = openCenteredPrintWindow(mapName, dataUrl);
 
       if (!opened) {
-        // Popup blocked: in-page centered print sheet
+        // Popup blocked: in-page centered full-page print sheet
         let sheet = document.getElementById('print-sheet');
         if (!sheet) {
           sheet = document.createElement('div');
@@ -1289,7 +1371,7 @@ if (btnPrintMap) {
         window.print();
       }
     } finally {
-      setTimeout(restore, 500);
+      setTimeout(restore, 600);
     }
   });
 }
