@@ -436,7 +436,7 @@ function initializeMap() {
       center: villageConfig[currentVillageId].center,
       zoom: 15.5,
       preserveDrawingBuffer: true,
-      pitch: 30,
+      pitch: 0,
       bearing: 0
     });
     
