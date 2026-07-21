@@ -1,4 +1,40 @@
-.vercel
+# Dependencies & build
 node_modules/
 dist/
+dist_electron/
+.vercel
+
+# Python
 __pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# Local junk / one-off artifacts (do not commit)
+WhatsApp Image*.jpeg
+WhatsApp Image*.jpg
+output file.jpeg
+*.zip
+georeference.zip
+
+# Scratch / intermediate media not used by the app
+public/bak*.pdf
+public/temp_*.jpg
+public/*_annotated.png
+
+# Logs & coverage
+*.log
+npm-debug.log*
+coverage/

@@ -1,7 +1,28 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc, getDocs } from 'firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  onSnapshot,
+  doc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+  getDocs
+} from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import {
+  LINE_TYPES,
+  escapeHtml,
+  resolvePoiType,
+  getPoiSvg,
+  getPoiLabel,
+  extractIconColor,
+  renderLegend,
+  renderToolbar,
+  populateTypeSelect
+} from './poiTypes.js';
 
 const firebaseConfig = {
   projectId: "map-digitizer-baskhedi",
@@ -42,7 +63,7 @@ const defaultVillageConfig = {
   village2: {
     name: "Junapani (Map 2)",
     center: [74.6942, 21.6899],
-    imageOverlayUrl: "/map2_enhanced.jpeg?v=3", 
+    imageOverlayUrl: "/map2_enhanced.jpeg?v=3",
     imageCoordinates: [
       [74.6842, 21.7049],
       [74.7042, 21.7049],
@@ -75,7 +96,7 @@ function updateVillageUI() {
   if (villageTitle && villageConfig[currentVillageId]) {
     villageTitle.innerText = villageConfig[currentVillageId].name;
   }
-  
+
   if (villageSelect) {
     villageSelect.innerHTML = '';
     for (const [key, config] of Object.entries(villageConfig)) {
@@ -93,7 +114,7 @@ if (villageSelect) {
     currentVillageId = e.target.value;
     localStorage.setItem('current_village_id', currentVillageId);
     if (map) {
-        window.location.reload(); 
+      window.location.reload();
     }
   });
 }
@@ -103,7 +124,8 @@ if (villageSelect) {
 let currentGeoJSON = { type: 'FeatureCollection', features: [] };
 let draw = null;
 let isEditMode = false;
-let activeEditTool = null; // 'house', 'school', 'shop', 'temple', 'church', 'landmark', 'road', 'delete'
+let drawHandlersAttached = false;
+let activeEditTool = null; // POI type id, line type, or 'delete'
 const markers = {}; // HTML markers
 
 // POI State
@@ -114,8 +136,8 @@ let defaultPoiType = '';
 let rememberPoiDetails = false;
 
 // Routing coordinates state
-let startCoords = null; 
-let endCoords = null;   
+let startCoords = null;
+let endCoords = null;
 let startMarker = null;
 let endMarker = null;
 
@@ -158,7 +180,15 @@ const btnCancelPoi = document.getElementById('btn-cancel-poi');
 const btnDeletePoi = document.getElementById('btn-delete-poi');
 const editToolbar = document.getElementById('edit-toolbar');
 const editStatusText = document.getElementById('edit-status-text');
-const toolBtns = document.querySelectorAll('.btn-tool');
+let toolBtns = [];
+
+// Build legend, toolbar, and type select from shared catalog
+renderLegend(document.querySelector('.legend-list'));
+const toolbarTools = document.querySelector('.edit-toolbar-tools');
+renderToolbar(toolbarTools);
+populateTypeSelect(poiTypeInput);
+toolBtns = Array.from(document.querySelectorAll('.btn-tool'));
+if (window.lucide) window.lucide.createIcons();
 
 // --- AUTHENTICATION & EDIT MODE ---
 onAuthStateChanged(auth, user => {
@@ -213,10 +243,10 @@ btnDeletePoi.addEventListener('click', async () => {
 btnSavePoi.addEventListener('click', async () => {
   const name = poiNameInput.value.trim() || 'Custom POI';
   const type = poiTypeInput.value;
-  
+
   // Close the modal immediately so the UI feels snappy
   poiModal.classList.add('hidden');
-  
+
   const rememberCheckbox = document.getElementById('poi-remember');
   if (rememberCheckbox && rememberCheckbox.checked) {
     rememberPoiDetails = true;
@@ -225,7 +255,7 @@ btnSavePoi.addEventListener('click', async () => {
   } else {
     rememberPoiDetails = false;
   }
-  
+
   if (editingPoiId) {
     // Update existing
     await updateDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, editingPoiId), {
@@ -248,48 +278,66 @@ btnSavePoi.addEventListener('click', async () => {
   }
 });
 
+async function onDrawSelectionChange(e) {
+  if (isEditMode && activeEditTool === 'delete') {
+    if (e.features && e.features.length > 0) {
+      const feature = e.features[0];
+      if (feature.id) {
+        await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, feature.id));
+        draw.delete(feature.id);
+      }
+    }
+  }
+}
+
+function attachDrawHandlers() {
+  if (!map || drawHandlersAttached) return;
+  map.on('draw.create', syncDrawToFirestore);
+  map.on('draw.update', syncDrawToFirestore);
+  map.on('draw.delete', deleteFromFirestore);
+  map.on('draw.selectionchange', onDrawSelectionChange);
+  drawHandlersAttached = true;
+}
+
+function detachDrawHandlers() {
+  if (!map || !drawHandlersAttached) return;
+  map.off('draw.create', syncDrawToFirestore);
+  map.off('draw.update', syncDrawToFirestore);
+  map.off('draw.delete', deleteFromFirestore);
+  map.off('draw.selectionchange', onDrawSelectionChange);
+  drawHandlersAttached = false;
+}
+
 function enableEditMode() {
   isEditMode = true;
   editToolbar.classList.remove('hidden');
   const customBgDetails = document.getElementById('custom-bg-details');
   if (customBgDetails) customBgDetails.classList.remove('hidden');
-  
+
   if (document.getElementById('btn-add-map')) {
     document.getElementById('btn-add-map').classList.remove('hidden');
   }
-  
+
   if (!map) return;
-  
+
   if (!draw) {
     draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {}
     });
   }
-  map.addControl(draw);
+  try {
+    map.addControl(draw);
+  } catch (_) {
+    // already added
+  }
   const linesOnly = {
-      type: 'FeatureCollection',
-      features: currentGeoJSON.features.filter(f => f.geometry && f.geometry.type === 'LineString')
+    type: 'FeatureCollection',
+    features: currentGeoJSON.features.filter(f => f.geometry && f.geometry.type === 'LineString')
   };
   draw.set(linesOnly);
-  
-  map.on('draw.create', syncDrawToFirestore);
-  map.on('draw.update', syncDrawToFirestore);
-  map.on('draw.delete', deleteFromFirestore);
-  
-  map.on('draw.selectionchange', async (e) => {
-    if (isEditMode && activeEditTool === 'delete') {
-      if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        if (feature.id) {
-          await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, feature.id));
-          draw.delete(feature.id);
-        }
-      }
-    }
-  });
-  
-  // Make all HTML markers draggable
+  attachDrawHandlers();
+
   for (const id in markers) {
     markers[id].marker.setDraggable(true);
   }
@@ -300,56 +348,59 @@ function disableEditMode() {
   editToolbar.classList.add('hidden');
   const customBgDetails = document.getElementById('custom-bg-details');
   if (customBgDetails) customBgDetails.classList.add('hidden');
-  
+
   if (document.getElementById('btn-add-map')) {
     document.getElementById('btn-add-map').classList.add('hidden');
   }
 
   resetActiveTool();
-  
+
   if (map && draw) {
-    map.removeControl(draw);
-    map.off('draw.create', syncDrawToFirestore);
-    map.off('draw.update', syncDrawToFirestore);
-    map.off('draw.delete', deleteFromFirestore);
-    map.off('draw.selectionchange');
+    detachDrawHandlers();
+    try {
+      map.removeControl(draw);
+    } catch (_) {
+      // not attached
+    }
   }
-  
-  // Make all HTML markers non-draggable
+
   for (const id in markers) {
     markers[id].marker.setDraggable(false);
   }
 }
 
 // --- CUSTOM EDIT TOOLBAR LOGIC ---
-toolBtns.forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    toolBtns.forEach(b => b.classList.remove('active'));
-    
-    if (activeEditTool === btn.dataset.type) {
-      // Toggle off
-      resetActiveTool();
-      return;
-    }
-    
-    btn.classList.add('active');
-    activeEditTool = btn.dataset.type;
-    
-    if (['road', 'curved_road', 'canal'].includes(activeEditTool)) {
-      editStatusText.innerText = "Click to draw road. Double-click to finish.";
-      if (draw) draw.changeMode('draw_line_string');
-      map.getCanvas().style.cursor = 'crosshair';
-    } else if (activeEditTool === 'delete') {
-      editStatusText.innerText = "Click on a POI or road to delete it.";
-      if (draw) draw.changeMode('simple_select');
-      map.getCanvas().style.cursor = 'no-drop';
-    } else {
-      editStatusText.innerText = `Click anywhere to place a ${activeEditTool}.`;
-      if (draw) draw.changeMode('simple_select');
-      map.getCanvas().style.cursor = 'crosshair';
-    }
+function bindToolButtons() {
+  toolBtns = Array.from(document.querySelectorAll('.btn-tool'));
+  toolBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      toolBtns.forEach(b => b.classList.remove('active'));
+
+      if (activeEditTool === btn.dataset.type) {
+        resetActiveTool();
+        return;
+      }
+
+      btn.classList.add('active');
+      activeEditTool = btn.dataset.type;
+
+      if (LINE_TYPES.has(activeEditTool)) {
+        editStatusText.innerText = "Click to draw road. Double-click to finish.";
+        if (draw) draw.changeMode('draw_line_string');
+        if (map) map.getCanvas().style.cursor = 'crosshair';
+      } else if (activeEditTool === 'delete') {
+        editStatusText.innerText = "Click on a POI or road to delete it.";
+        if (draw) draw.changeMode('simple_select');
+        if (map) map.getCanvas().style.cursor = 'no-drop';
+      } else {
+        editStatusText.innerText = `Click anywhere to place a ${activeEditTool}.`;
+        if (draw) draw.changeMode('simple_select');
+        if (map) map.getCanvas().style.cursor = 'crosshair';
+      }
+    });
   });
-});
+}
+bindToolButtons();
 
 function resetActiveTool() {
   activeEditTool = null;
@@ -363,22 +414,22 @@ function resetActiveTool() {
 async function syncDrawToFirestore(e) {
   const features = e.features;
   for (const f of features) {
-     const docId = f.id || doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
-     f.id = docId;
-     
-     // Force 'road' type if it was drawn with the line string tool
-     if (!f.properties.type && f.geometry.type === 'LineString') {
-       f.properties.type = activeEditTool && ['road', 'curved_road', 'canal'].includes(activeEditTool) ? activeEditTool : 'road';
-     }
-     
-     const data = JSON.parse(JSON.stringify(f));
-     data.geometry.coordinates = JSON.stringify(data.geometry.coordinates);
-     await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), data);
+    const docId = f.id || doc(collection(db, villageConfig[currentVillageId].firestoreCollection)).id;
+    f.id = docId;
+
+    // Force 'road' type if it was drawn with the line string tool
+    if (!f.properties.type && f.geometry.type === 'LineString') {
+      f.properties.type = activeEditTool && LINE_TYPES.has(activeEditTool) ? activeEditTool : 'road';
+    }
+
+    const data = JSON.parse(JSON.stringify(f));
+    data.geometry.coordinates = JSON.stringify(data.geometry.coordinates);
+    await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), data);
   }
-  
-  if (['road', 'curved_road', 'canal'].includes(activeEditTool)) {
+
+  if (LINE_TYPES.has(activeEditTool)) {
     setTimeout(() => {
-      if (draw && ['road', 'curved_road', 'canal'].includes(activeEditTool)) {
+      if (draw && LINE_TYPES.has(activeEditTool)) {
         draw.changeMode('draw_line_string');
       }
     }, 50);
@@ -388,7 +439,7 @@ async function syncDrawToFirestore(e) {
 async function deleteFromFirestore(e) {
   const features = e.features;
   for (const f of features) {
-     if (f.id) await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, f.id));
+    if (f.id) await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, f.id));
   }
 }
 
@@ -419,16 +470,16 @@ function saveToken(token) {
   }
 }
 
-  saveTokenBtn.addEventListener('click', () => saveToken(tokenInput.value.trim()));
-  if (saveTokenBtnModal) {
-    saveTokenBtnModal.addEventListener('click', () => saveToken(tokenInputModal.value.trim()));
-  }
+saveTokenBtn.addEventListener('click', () => saveToken(tokenInput.value.trim()));
+if (saveTokenBtnModal) {
+  saveTokenBtnModal.addEventListener('click', () => saveToken(tokenInputModal.value.trim()));
+}
 
 
 function initializeMap() {
   if (map) return;
   mapboxgl.accessToken = mapboxToken;
-  
+
   try {
     map = new mapboxgl.Map({
       container: 'map',
@@ -442,55 +493,55 @@ function initializeMap() {
       pitchWithRotate: false,
       touchPitch: false
     });
-    
+
     map.on('load', () => {
       // AI Generated stylized map overlay
       const vConfig = villageConfig[currentVillageId];
       let urlToUse = vConfig.imageOverlayUrl;
       if (window.customBgUrl) {
-          urlToUse = window.customBgUrl;
+        urlToUse = window.customBgUrl;
       }
       if (urlToUse) {
-          map.addSource('baskhedi-image', {
-            type: 'image',
-            url: urlToUse,
-            coordinates: vConfig.imageCoordinates
-          });
-          map.addLayer({
-            id: 'baskhedi-overlay',
-            type: 'raster',
-            source: 'baskhedi-image',
-            paint: { 'raster-opacity': 1.0 }
-          });
+        map.addSource('village-image', {
+          type: 'image',
+          url: urlToUse,
+          coordinates: vConfig.imageCoordinates
+        });
+        map.addLayer({
+          id: 'village-overlay',
+          type: 'raster',
+          source: 'village-image',
+          paint: { 'raster-opacity': 1.0 }
+        });
       }
 
 
 
-      map.addSource('baskhedi-features', {
+      map.addSource('village-features', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
       });
-      
+
 
       map.addLayer({
         id: 'roads-line',
         type: 'line',
-        source: 'baskhedi-features',
+        source: 'village-features',
         filter: ['==', '$type', 'LineString'],
-        paint: { 
-            'line-color': [
-                'match',
-                ['get', 'type'],
-                'canal', '#0ea5e9',
+        paint: {
+          'line-color': [
+            'match',
+            ['get', 'type'],
+            'canal', '#0ea5e9',
                 /* default for road / curved_road */ '#000000'
-            ],
-            'line-width': [
-                'match',
-                ['get', 'type'],
-                'canal', 6, // Make canal wider
-                3.5 // Default
-            ], 
-            'line-opacity': 1.0 
+          ],
+          'line-width': [
+            'match',
+            ['get', 'type'],
+            'canal', 6, // Make canal wider
+            3.5 // Default
+          ],
+          'line-opacity': 1.0
         },
         layout: { 'line-join': 'round', 'line-cap': 'round' }
       });
@@ -498,25 +549,25 @@ function initializeMap() {
       map.addLayer({
         id: 'roads-line-hover',
         type: 'line',
-        source: 'baskhedi-features',
+        source: 'village-features',
         filter: ['==', '$type', 'LineString'],
-        paint: { 
-            'line-color': [
-                'match',
-                ['get', 'type'],
-                'canal', '#0284c7',
-                '#333333'
-            ], 
-            'line-width': 7, 
-            'line-opacity': 0.0 
+        paint: {
+          'line-color': [
+            'match',
+            ['get', 'type'],
+            'canal', '#0284c7',
+            '#333333'
+          ],
+          'line-width': 7,
+          'line-opacity': 0.0
         },
         layout: { 'line-join': 'round', 'line-cap': 'round' }
       });
-map.addSource('route', {
+      map.addSource('route', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
       });
-      
+
       map.addLayer({
         id: 'route-line',
         type: 'line',
@@ -527,12 +578,12 @@ map.addSource('route', {
 
       map.addControl(new mapboxgl.NavigationControl(), 'top-right');
       map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-      
+
       map.on('click', onMapClick);
       if (isEditMode) enableEditMode();
       loadFirestoreData();
     });
-    
+
   } catch (error) {
     console.error("Mapbox initialization error:", error);
     alert("Failed to initialize Mapbox.");
@@ -543,110 +594,64 @@ function loadFirestoreData() {
   onSnapshot(collection(db, villageConfig[currentVillageId].firestoreCollection), (snapshot) => {
     const features = [];
     snapshot.forEach(docSnap => {
-       let data = docSnap.data();
-       if (data.geometry && typeof data.geometry.coordinates === 'string') {
-          try { data.geometry.coordinates = JSON.parse(data.geometry.coordinates); } catch (e) {}
-       }
-       data.id = docSnap.id;
-       features.push(data);
+      let data = docSnap.data();
+      if (data.geometry && typeof data.geometry.coordinates === 'string') {
+        try { data.geometry.coordinates = JSON.parse(data.geometry.coordinates); } catch (e) { console.warn('Bad coordinates for feature', docSnap.id, e); return; }
+      }
+      data.id = docSnap.id;
+      features.push(data);
     });
-    
+
     currentGeoJSON.features = features;
-    
-    if (map && map.getSource('baskhedi-features')) {
-      map.getSource('baskhedi-features').setData(currentGeoJSON);
+
+    if (map && map.getSource('village-features')) {
+      map.getSource('village-features').setData(currentGeoJSON);
     }
-    
+
     buildRoutingGraph(currentGeoJSON);
     renderMarkers(features);
-    
+
     if (isEditMode && draw) {
-       const linesOnly = {
-           type: 'FeatureCollection',
-           features: currentGeoJSON.features.filter(f => f.geometry && f.geometry.type === 'LineString')
-       };
-       draw.set(linesOnly);
+      const linesOnly = {
+        type: 'FeatureCollection',
+        features: currentGeoJSON.features.filter(f => f.geometry && f.geometry.type === 'LineString')
+      };
+      draw.set(linesOnly);
     }
   });
 }
 
 function renderMarkers(features) {
   const incomingIds = new Set();
-  
+
   features.forEach(feature => {
     if (feature.geometry && feature.geometry.type === 'Point') {
       incomingIds.add(feature.id);
-      
+
       const coords = feature.geometry.coordinates;
       const props = feature.properties || {};
-      
+
       if (!markers[feature.id]) {
         const el = document.createElement('div');
         el.className = `map-poi-marker ${props.type || 'poi'}`;
-        
-                const typeMap = {
-          house: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="none" stroke="#ef4444" stroke-width="2"/></svg>',
-          empty_house: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="none" stroke="#ef4444" stroke-width="2"/></svg>',
-          house_solid: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 22h20L12 2z" fill="#ef4444"/></svg>',
-          empty_house_solid: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22L2 2h20L12 22z" fill="#ef4444"/></svg>',
-          service_provider: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="#eab308"/></svg>',
-          temple_mosque: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="white" stroke="black" stroke-width="2"/></svg>',
-          school: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#8B4513"/></svg>',
-          govt_building: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="6" width="20" height="12" fill="#d946ef"/></svg>',
-          health_center: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="4" width="20" height="16" fill="white" stroke="black" stroke-width="1"/><path d="M12 7v10M7 12h10" stroke="#22c55e" stroke-width="4"/></svg>',
-          tree: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="9" r="7" fill="#22c55e"/><path d="M12 16v6" stroke="#8B4513" stroke-width="3"/></svg>',
-          pond: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#3b82f6" stroke-width="2"/><line x1="5" y1="8" x2="19" y2="8" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="3" y1="12" x2="21" y2="12" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/><line x1="5" y1="16" x2="19" y2="16" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2 2"/></svg>',
-          handpump_working: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M6 14h2v6H6z" fill="#3b82f6"/></svg>',
-          handpump_broken: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 4h8v16H8z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10l5-3" stroke="black" stroke-width="2"/><path d="M4 14l6 6M10 14l-6 6" stroke="#ef4444" stroke-width="2"/></svg>',
-          tap_working: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><circle cx="12" cy="18" r="3" fill="#3b82f6"/></svg>',
-          tap_broken: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10h12v4H4z" fill="none" stroke="black" stroke-width="2"/><path d="M16 10v4h4" fill="none" stroke="black" stroke-width="2"/><path d="M9 16l6 6M15 16l-6 6" stroke="#ef4444" stroke-width="2"/></svg>',
-          open_defecation: '<svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12 2 22 7 22 17 12 22 2 17 2 7" fill="none" stroke="black" stroke-width="2"/></svg>',
-          road: '<svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="black" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="black" stroke-width="2"/></svg>',
-          curved_road: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M2 10 Q12 0 22 10" fill="none" stroke="black" stroke-width="2"/><path d="M2 14 Q12 4 22 14" fill="none" stroke="black" stroke-width="2"/></svg>',
-          canal: '<svg viewBox="0 0 24 24" width="20" height="20"><line x1="2" y1="10" x2="22" y2="10" stroke="#0ea5e9" stroke-width="2"/><line x1="2" y1="14" x2="22" y2="14" stroke="#0ea5e9" stroke-width="2"/></svg>',
-          water_tank: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6 Q12 2 18 6 v12 Q12 22 6 18 Z" fill="#3b82f6"/></svg>',
-          underground_tank: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="18" x2="21" y2="6" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="12" y2="6" stroke="black" stroke-width="2"/><line x1="12" y1="18" x2="21" y2="12" stroke="black" stroke-width="2"/></svg>',
-          transformer: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="black" stroke-width="2"/><line x1="4" y1="4" x2="20" y2="20" stroke="black" stroke-width="2"/><line x1="20" y1="4" x2="4" y2="20" stroke="black" stroke-width="2"/></svg>',
-          solar_panel: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="6" width="18" height="12" fill="none" stroke="black" stroke-width="2"/><line x1="3" y1="12" x2="21" y2="12" stroke="black" stroke-width="1"/><line x1="9" y1="6" x2="9" y2="18" stroke="black" stroke-width="1"/><line x1="15" y1="6" x2="15" y2="18" stroke="black" stroke-width="1"/></svg>',
-          power_center: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="black" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="black" stroke-width="1"/><line x1="10" y1="6" x2="10" y2="18" stroke="black" stroke-width="1"/><line x1="14" y1="6" x2="14" y2="18" stroke="black" stroke-width="1"/><line x1="18" y1="6" x2="18" y2="18" stroke="black" stroke-width="1"/></svg>',
-          playground: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#22c55e" stroke-width="2"/></svg>',
-          well: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><circle cx="12" cy="12" r="8" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2 2"/></svg>',
-          misc: '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="#f43f5e"/><text x="12" y="16" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white" font-weight="bold">?</text></svg>'
-        };
-          let typeToUse = props.type || 'poi';
-          // Legacy mappings for existing GeoJSON data
-          if (typeToUse === 'shop') typeToUse = 'service_provider';
-          if (typeToUse === 'temple' || typeToUse === 'church') typeToUse = 'temple_mosque';
-          if (typeToUse === 'landmark') typeToUse = 'govt_building';
-          if (typeToUse === 'poi') typeToUse = 'house_solid';
 
-          let iconHtml = typeMap[typeToUse] || '<i data-lucide="map-pin" style="color: #f43f5e"></i>';
-          
-          let extractColor = '#f43f5e';
-          let strokeMatch = iconHtml.match(/stroke="([^"]+)"/);
-          let fillMatch = iconHtml.match(/fill="([^"]+)"/);
-          
-          if (strokeMatch && strokeMatch[1] !== 'none' && strokeMatch[1] !== 'white' && strokeMatch[1] !== 'black') {
-              extractColor = strokeMatch[1];
-          } else if (fillMatch && fillMatch[1] !== 'none' && fillMatch[1] !== 'white' && fillMatch[1] !== 'black') {
-              extractColor = fillMatch[1];
-          } else if (strokeMatch && strokeMatch[1] === 'black') {
-              extractColor = '#000';
-          } else if (fillMatch && fillMatch[1] === 'black') {
-              extractColor = '#000';
-          }
-          
-          el.innerHTML = `
-          <div class="poi-icon-wrapper" style="color: ${extractColor}; display: flex; flex-direction: column; align-items: center;" title="${props.name || props.type || 'POI'}">
+        const typeToUse = resolvePoiType(props.type);
+        const iconHtml = getPoiSvg(typeToUse);
+        const extractColor = extractIconColor(iconHtml);
+        const safeName = escapeHtml(props.name || '');
+        const titleText = escapeHtml(props.name || props.type || 'POI');
+
+        el.innerHTML = `
+          <div class="poi-icon-wrapper" style="color: ${extractColor}; display: flex; flex-direction: column; align-items: center;" title="${titleText}">
             ${iconHtml}
           </div>
-          ${props.name ? `
+          ${safeName ? `
             <div class="poi-label-container">
-              <span class="poi-label-text">${props.name}</span>
+              <span class="poi-label-text">${safeName}</span>
             </div>
           ` : ''}
         `;
-        
+
         const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', draggable: isEditMode })
           .setLngLat(coords)
           .addTo(map);
@@ -663,22 +668,22 @@ function renderMarkers(features) {
         });
 
         const popup = new mapboxgl.Popup({ offset: [0, -27], closeButton: true, className: 'poi-popup' });
-        
+
         el.addEventListener('click', async (e) => {
           if (el.getAttribute('data-dragging') === 'true') { e.stopPropagation(); return; }
           e.stopPropagation();
-          
+
           if (isEditMode && activeEditTool === 'delete') {
             await deleteDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, feature.id));
             return;
           }
-          
+
           if (isEditMode) return; // Disable popup in normal edit mode
-          
+
           popup.setLngLat(marker.getLngLat())
             .setHTML(`
-              <div class="popup-title">${props.name || 'Unnamed Point'}</div>
-              <div class="popup-type">${props.type || 'POI'}</div>
+              <div class="popup-title">${escapeHtml(props.name || 'Unnamed Point')}</div>
+              <div class="popup-type">${escapeHtml(getPoiLabel(props.type) || props.type || 'POI')}</div>
               <div class="popup-actions" style="margin-top: 10px; display: flex; gap: 8px;">
                 <button class="btn btn-secondary btn-xs btn-route-start" style="padding: 4px 8px; font-size: 10px; border-radius: 4px;">
                   <i data-lucide="flag" style="width: 12px; height: 12px;"></i> Start Here
@@ -689,7 +694,7 @@ function renderMarkers(features) {
               </div>
             `)
             .addTo(map);
-            
+
           if (window.lucide) window.lucide.createIcons();
           setTimeout(() => {
             const btnStart = document.querySelector('.btn-route-start');
@@ -698,7 +703,7 @@ function renderMarkers(features) {
             if (btnEnd) btnEnd.addEventListener('click', (ev) => { ev.stopPropagation(); setEndEndpoint(marker.getLngLat().lng, marker.getLngLat().lat); popup.remove(); });
           }, 50);
         });
-        
+
         // Add click listener to open the Edit POI modal
         el.addEventListener('click', (e) => {
           if (el.getAttribute('data-dragging') === 'true') { e.stopPropagation(); return; }
@@ -706,16 +711,16 @@ function renderMarkers(features) {
             e.stopPropagation();
             editingPoiId = feature.id;
             editingPoiCoords = null;
-            
+
             poiNameInput.value = props.name || '';
             poiTypeInput.value = props.type || 'poi';
-            
+
             poiModal.classList.remove('hidden');
             btnDeletePoi.style.display = 'block';
             poiNameInput.focus();
           }
         });
-        
+
         markers[feature.id] = { marker, el, props, feature };
       } else {
         markers[feature.id].marker.setLngLat(coords);
@@ -723,11 +728,11 @@ function renderMarkers(features) {
       }
     }
   });
-  
+
   for (const id in markers) {
     if (!incomingIds.has(id)) {
-       markers[id].marker.remove();
-       delete markers[id];
+      markers[id].marker.remove();
+      delete markers[id];
     }
   }
   if (window.lucide) window.lucide.createIcons();
@@ -736,13 +741,13 @@ function renderMarkers(features) {
 // Map Clicks for Point Creation
 async function onMapClick(e) {
   if (e.originalEvent.target.closest('.mapboxgl-popup') || e.originalEvent.target.closest('.map-poi-marker') || e.originalEvent.target.closest('.mapboxgl-ctrl')) return;
-  
+
   if (isEditMode) {
-    if (activeEditTool && !['road', 'curved_road', 'canal', 'delete'].includes(activeEditTool)) {
+    if (activeEditTool && !LINE_TYPES.has(activeEditTool) && activeEditTool !== 'delete') {
       // Instead of instantly saving, open the modal to customize name and type
       editingPoiId = null;
       editingPoiCoords = [e.lngLat.lng, e.lngLat.lat];
-      
+
       const rememberCheckbox = document.getElementById('poi-remember');
       if (rememberPoiDetails && defaultPoiType) {
         poiNameInput.value = defaultPoiName;
@@ -753,14 +758,14 @@ async function onMapClick(e) {
         poiTypeInput.value = activeEditTool;
         if (rememberCheckbox) rememberCheckbox.checked = false;
       }
-      
+
       poiModal.classList.remove('hidden');
       btnDeletePoi.style.display = 'none'; // Don't show delete when creating a new one
       poiNameInput.focus();
     }
     return;
   }
-  
+
   const coords = e.lngLat;
   if (!startCoords) setStartEndpoint(coords.lng, coords.lat);
   else if (!endCoords) setEndEndpoint(coords.lng, coords.lat);
@@ -797,7 +802,7 @@ function fetchShortestRoute() {
   const startSnap = findNearestNode(startCoords.lng, startCoords.lat);
   const endSnap = findNearestNode(endCoords.lng, endCoords.lat);
   if (!startSnap.node || !endSnap.node) return;
-  
+
   const result = solveDijkstra(startSnap.node, endSnap.node);
   if (result) {
     const routeGeoJSON = {
@@ -810,7 +815,7 @@ function fetchShortestRoute() {
     if (snapStartDisplay) snapStartDisplay.innerText = `${startSnap.distance.toFixed(1)}m`;
     if (snapEndDisplay) snapEndDisplay.innerText = `${endSnap.distance.toFixed(1)}m`;
     if (routeStatsContainer) routeStatsContainer.classList.remove('hidden');
-    
+
     const bounds = new mapboxgl.LngLatBounds();
     result.path.forEach(c => bounds.extend(c));
     map.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 1000 });
@@ -833,8 +838,8 @@ if (clearRouteBtn) clearRouteBtn.addEventListener('click', clearRoute);
 
 // --- ROUTING ENGINE ---
 function haversineDistance(c1, c2) {
-  const R = 6371000.0, dLat = (c2[1]-c1[1])*Math.PI/180, dLon = (c2[0]-c1[0])*Math.PI/180;
-  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(c1[1]*Math.PI/180)*Math.cos(c2[1]*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  const R = 6371000.0, dLat = (c2[1] - c1[1]) * Math.PI / 180, dLon = (c2[0] - c1[0]) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(c1[1] * Math.PI / 180) * Math.cos(c2[1] * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
@@ -849,7 +854,7 @@ function buildRoutingGraph(geojson) {
   lineStrings.forEach(f => {
     const coords = f.geometry.coordinates;
     for (let i = 0; i < coords.length - 1; i++) {
-      const p1 = getSnappedNode(coords[i]), p2 = getSnappedNode(coords[i+1]);
+      const p1 = getSnappedNode(coords[i]), p2 = getSnappedNode(coords[i + 1]);
       const p1K = p1.join(','), p2K = p2.join(',');
       if (p1K !== p2K) {
         const dist = haversineDistance(p1, p2);
@@ -922,13 +927,13 @@ if (btnSaveNewMap) {
     const lat = parseFloat(mapLatInput.value);
 
     if (!name) return alert("Please enter a map name.");
-    
+
     // Generate new unique ID
     const newId = `village_${Date.now()}`;
     const newConfig = {
       name: name,
       center: [lng, lat],
-      imageOverlayUrl: "", 
+      imageOverlayUrl: "",
       imageCoordinates: [
         [lng - 0.01, lat + 0.01],
         [lng + 0.01, lat + 0.01],
@@ -937,16 +942,16 @@ if (btnSaveNewMap) {
       ],
       firestoreCollection: `features_${newId}`
     };
-    
+
     // Stringify array for Firestore storage to avoid nested array issue
     const firestoreData = { ...newConfig, imageCoordinates: JSON.stringify(newConfig.imageCoordinates) };
-    
+
     try {
       await setDoc(doc(db, 'maps', newId), firestoreData);
-      
+
       // Update local config
       villageConfig[newId] = newConfig;
-      
+
       // Select it and reload
       currentVillageId = newId;
       localStorage.setItem('current_village_id', currentVillageId);
@@ -975,7 +980,7 @@ async function startup() {
   } catch (err) {
     console.error("Failed to load map configs from Firestore, using defaults", err);
   }
-  
+
   // Update UI and ensure currentVillageId is valid
   if (!villageConfig[currentVillageId]) {
     currentVillageId = Object.keys(villageConfig)[0];
@@ -997,18 +1002,18 @@ async function startup() {
   initTokenState();
 }
 
-  
-  if (btnExportGeoJSON) {
-    btnExportGeoJSON.addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentGeoJSON, null, 2));
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href",     dataStr);
-      downloadAnchorNode.setAttribute("download", villageConfig[currentVillageId].name.replace(/\s+/g, '_') + "_export.geojson");
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-    });
-  }
+
+if (btnExportGeoJSON) {
+  btnExportGeoJSON.addEventListener('click', () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentGeoJSON, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", villageConfig[currentVillageId].name.replace(/\s+/g, '_') + "_export.geojson");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  });
+}
 
 if (btnPrintMap) {
   btnPrintMap.addEventListener('click', () => {
@@ -1028,21 +1033,21 @@ if (btnPrintMap) {
     // Fit to village boundary
     const config = villageConfig[currentVillageId];
     if (config && config.imageCoordinates) {
-       const coords = config.imageCoordinates;
-       let minLng = coords[0][0], maxLng = coords[0][0];
-       let minLat = coords[0][1], maxLat = coords[0][1];
-       for(let i=1; i<coords.length; i++) {
-           minLng = Math.min(minLng, coords[i][0]);
-           maxLng = Math.max(maxLng, coords[i][0]);
-           minLat = Math.min(minLat, coords[i][1]);
-           maxLat = Math.max(maxLat, coords[i][1]);
-       }
-       map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { 
-         padding: 30, 
-         animate: false,
-         pitch: 0,
-         bearing: 0
-       });
+      const coords = config.imageCoordinates;
+      let minLng = coords[0][0], maxLng = coords[0][0];
+      let minLat = coords[0][1], maxLat = coords[0][1];
+      for (let i = 1; i < coords.length; i++) {
+        minLng = Math.min(minLng, coords[i][0]);
+        maxLng = Math.max(maxLng, coords[i][0]);
+        minLat = Math.min(minLat, coords[i][1]);
+        maxLat = Math.max(maxLat, coords[i][1]);
+      }
+      map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+        padding: 30,
+        animate: false,
+        pitch: 0,
+        bearing: 0
+      });
     }
 
     document.body.classList.add('is-printing');
@@ -1050,7 +1055,7 @@ if (btnPrintMap) {
     setTimeout(() => {
       map.resize();
       window.print();
-      
+
       setTimeout(() => {
         document.body.classList.remove('is-printing');
         map.jumpTo({ center: currentCenter, zoom: currentZoom, pitch: currentPitch, bearing: currentBearing });
@@ -1064,66 +1069,66 @@ if (btnPrintMap) {
 
 // --- CUSTOM BACKGROUND STORAGE (Firestore Base64) ---
 function compressImageToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                // Calculate new dimensions (max 2048px to keep it under 1MB)
-                const MAX_DIMENSION = 2048;
-                let width = img.width;
-                let height = img.height;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Calculate new dimensions (max 2048px to keep it under 1MB)
+        const MAX_DIMENSION = 2048;
+        let width = img.width;
+        let height = img.height;
 
-                if (width > height) {
-                    if (width > MAX_DIMENSION) {
-                        height *= MAX_DIMENSION / width;
-                        width = MAX_DIMENSION;
-                    }
-                } else {
-                    if (height > MAX_DIMENSION) {
-                        width *= MAX_DIMENSION / height;
-                        height = MAX_DIMENSION;
-                    }
-                }
+        if (width > height) {
+          if (width > MAX_DIMENSION) {
+            height *= MAX_DIMENSION / width;
+            width = MAX_DIMENSION;
+          }
+        } else {
+          if (height > MAX_DIMENSION) {
+            width *= MAX_DIMENSION / height;
+            height = MAX_DIMENSION;
+          }
+        }
 
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
 
-                // Compress to JPEG with 0.7 quality
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                resolve(dataUrl);
-            };
-            img.onerror = (e) => reject(e);
-        };
-        reader.onerror = (e) => reject(e);
-    });
+        // Compress to JPEG with 0.7 quality
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(dataUrl);
+      };
+      img.onerror = (e) => reject(e);
+    };
+    reader.onerror = (e) => reject(e);
+  });
 }
 
 async function saveCustomBackground(villageId, file) {
-    const base64Url = await compressImageToBase64(file);
-    await setDoc(doc(db, "village_settings", villageId), {
-        customBackgroundUrl: base64Url
-    }, { merge: true });
-    return base64Url;
+  const base64Url = await compressImageToBase64(file);
+  await setDoc(doc(db, "village_settings", villageId), {
+    customBackgroundUrl: base64Url
+  }, { merge: true });
+  return base64Url;
 }
 
 async function getCustomBackground(villageId) {
-    const docRef = doc(db, "village_settings", villageId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists() && docSnap.data().customBackgroundUrl) {
-        return docSnap.data().customBackgroundUrl;
-    }
-    return null;
+  const docRef = doc(db, "village_settings", villageId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists() && docSnap.data().customBackgroundUrl) {
+    return docSnap.data().customBackgroundUrl;
+  }
+  return null;
 }
 
 async function clearCustomBackground(villageId) {
-    const docRef = doc(db, "village_settings", villageId);
-    await setDoc(docRef, { customBackgroundUrl: null }, { merge: true });
+  const docRef = doc(db, "village_settings", villageId);
+  await setDoc(docRef, { customBackgroundUrl: null }, { merge: true });
 }
 
 const bgUploadInput = document.getElementById('bg-upload-input');
@@ -1137,8 +1142,8 @@ if (bgUploadInput) {
       try {
         const url = await saveCustomBackground(currentVillageId, file);
         window.customBgUrl = url;
-        if (map && map.getSource('baskhedi-image')) {
-           map.getSource('baskhedi-image').updateImage({ url: url });
+        if (map && map.getSource('village-image')) {
+          map.getSource('village-image').updateImage({ url: url });
         }
         if (btnResetBg) btnResetBg.disabled = false;
       } catch (e) {
@@ -1158,8 +1163,8 @@ if (btnResetBg) {
       await clearCustomBackground(currentVillageId);
       window.customBgUrl = null;
       bgUploadInput.value = '';
-      if (map && map.getSource('baskhedi-image')) {
-         map.getSource('baskhedi-image').updateImage({ url: villageConfig[currentVillageId].imageOverlayUrl });
+      if (map && map.getSource('village-image')) {
+        map.getSource('village-image').updateImage({ url: villageConfig[currentVillageId].imageOverlayUrl });
       }
     } catch (e) {
       console.error("Error clearing background", e);
