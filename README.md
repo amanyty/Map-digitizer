@@ -68,6 +68,10 @@ main.js             Electron entry (hardened webPreferences)
 | Junapani (Map 2) | `public/map2_enhanced.jpeg` |
 | Shivni Padawa (Map 3) | `public/map3_enhanced.jpeg` |
 
+### Offline backups
+
+`archive/` holds GeoJSON snapshots of Baskhedi features for recovery if Firestore is unavailable. Live data is still served from Firestore; use **Export GeoJSON** in the UI for the latest dump. See `archive/README.md` for restoring older processing images from git history.
+
 ## Data model (Firestore)
 
 | Collection | Purpose |

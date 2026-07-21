@@ -621,6 +621,30 @@ function loadFirestoreData() {
   });
 }
 
+function paintPoiMarkerElement(el, props) {
+  const typeToUse = resolvePoiType(props.type);
+  const iconHtml = getPoiSvg(typeToUse);
+  const extractColor = extractIconColor(iconHtml);
+  const safeName = escapeHtml(props.name || '');
+  const titleText = escapeHtml(props.name || props.type || 'POI');
+
+  el.className = `map-poi-marker ${typeToUse || 'poi'}`;
+  el.innerHTML = `
+    <div class="poi-icon-wrapper" style="color: ${extractColor}; display: flex; flex-direction: column; align-items: center;" title="${titleText}">
+      ${iconHtml}
+    </div>
+    ${safeName ? `
+      <div class="poi-label-container">
+        <span class="poi-label-text">${safeName}</span>
+      </div>
+    ` : ''}
+  `;
+}
+
+function markerPropsSignature(props = {}) {
+  return `${props.name || ''}|${props.type || ''}`;
+}
+
 function renderMarkers(features) {
   const incomingIds = new Set();
 
@@ -633,36 +657,20 @@ function renderMarkers(features) {
 
       if (!markers[feature.id]) {
         const el = document.createElement('div');
-        el.className = `map-poi-marker ${props.type || 'poi'}`;
-
-        const typeToUse = resolvePoiType(props.type);
-        const iconHtml = getPoiSvg(typeToUse);
-        const extractColor = extractIconColor(iconHtml);
-        const safeName = escapeHtml(props.name || '');
-        const titleText = escapeHtml(props.name || props.type || 'POI');
-
-        el.innerHTML = `
-          <div class="poi-icon-wrapper" style="color: ${extractColor}; display: flex; flex-direction: column; align-items: center;" title="${titleText}">
-            ${iconHtml}
-          </div>
-          ${safeName ? `
-            <div class="poi-label-container">
-              <span class="poi-label-text">${safeName}</span>
-            </div>
-          ` : ''}
-        `;
+        paintPoiMarkerElement(el, props);
 
         const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', draggable: isEditMode })
           .setLngLat(coords)
           .addTo(map);
 
-        // Handle Marker Drag
+        // Handle Marker Drag — always read the latest feature from the markers map
         marker.on('dragstart', () => { el.setAttribute('data-dragging', 'true'); });
         marker.on('dragend', async () => {
           setTimeout(() => el.removeAttribute('data-dragging'), 100);
           const lngLat = marker.getLngLat();
           const docId = feature.id;
-          const data = JSON.parse(JSON.stringify(feature));
+          const latest = markers[docId]?.feature || feature;
+          const data = JSON.parse(JSON.stringify(latest));
           data.geometry.coordinates = JSON.stringify([lngLat.lng, lngLat.lat]);
           await setDoc(doc(db, villageConfig[currentVillageId].firestoreCollection, docId), data);
         });
@@ -680,10 +688,11 @@ function renderMarkers(features) {
 
           if (isEditMode) return; // Disable popup in normal edit mode
 
+          const latestProps = (markers[feature.id]?.feature?.properties) || props;
           popup.setLngLat(marker.getLngLat())
             .setHTML(`
-              <div class="popup-title">${escapeHtml(props.name || 'Unnamed Point')}</div>
-              <div class="popup-type">${escapeHtml(getPoiLabel(props.type) || props.type || 'POI')}</div>
+              <div class="popup-title">${escapeHtml(latestProps.name || 'Unnamed Point')}</div>
+              <div class="popup-type">${escapeHtml(getPoiLabel(latestProps.type) || latestProps.type || 'POI')}</div>
               <div class="popup-actions" style="margin-top: 10px; display: flex; gap: 8px;">
                 <button class="btn btn-secondary btn-xs btn-route-start" style="padding: 4px 8px; font-size: 10px; border-radius: 4px;">
                   <i data-lucide="flag" style="width: 12px; height: 12px;"></i> Start Here
@@ -712,8 +721,10 @@ function renderMarkers(features) {
             editingPoiId = feature.id;
             editingPoiCoords = null;
 
-            poiNameInput.value = props.name || '';
-            poiTypeInput.value = props.type || 'poi';
+            const latestProps = (markers[feature.id]?.feature?.properties) || props;
+            poiNameInput.value = latestProps.name || '';
+            // Normalize legacy type ids so the select shows the correct option
+            poiTypeInput.value = resolvePoiType(latestProps.type || 'misc');
 
             poiModal.classList.remove('hidden');
             btnDeletePoi.style.display = 'block';
@@ -721,10 +732,24 @@ function renderMarkers(features) {
           }
         });
 
-        markers[feature.id] = { marker, el, props, feature };
+        markers[feature.id] = {
+          marker,
+          el,
+          props,
+          feature,
+          signature: markerPropsSignature(props)
+        };
       } else {
-        markers[feature.id].marker.setLngLat(coords);
-        markers[feature.id].feature = feature; // update reference
+        const existing = markers[feature.id];
+        existing.marker.setLngLat(coords);
+        existing.feature = feature;
+        existing.props = props;
+        const nextSig = markerPropsSignature(props);
+        // Refresh icon/label when name or type changes (e.g. after edit in Firestore)
+        if (existing.signature !== nextSig) {
+          paintPoiMarkerElement(existing.el, props);
+          existing.signature = nextSig;
+        }
       }
     }
   });
